@@ -6,6 +6,12 @@ the RailSpotting headend.
 
 This is the Rust receiver, version 2.x.
 
+**Using it:** a receiver reports to RailSpotting ([railspotting.com](https://railspotting.com)), a
+service that is not open source. To run one you link it to a RailSpotting account (the receiver
+shows a code to enter on the website). The radio side (dongles, EOT decoding, detector
+recognition) is all here; `run --simulate` feeds it synthetic radio traffic, so it can be tried
+without hardware, and the tests run without the service. Security problems: see `SECURITY.md`.
+
 ## Layout
 
 | Path | What |
