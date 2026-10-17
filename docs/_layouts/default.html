@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if page.title and page.url != "/" %}{{ page.title }} · {% endif %}{{ site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  <meta name="theme-color" content="#16191c">
+  <link rel="icon" href="{{ '/assets/favicon.svg' | relative_url }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
+</head>
+<body>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="{{ '/' | relative_url }}" aria-label="{{ site.title }} home">
+        <img src="{{ '/assets/lockup-dark.svg' | relative_url }}" alt="RailSpotting" width="134" height="32">
+        <span class="brand-sub">{{ site.short }}</span>
+      </a>
+      <nav class="top-links" aria-label="Elsewhere">
+        {% for l in site.links %}<a href="{{ l.url }}">{{ l.title }}</a>{% endfor %}
+      </nav>
+    </div>
+  </header>
+  <div class="wrap">
+    {% capture pagelist %}
+      {% for group in site.nav %}
+      <p class="side-h">{{ group.title }}</p>
+      <ul>
+        {% for item in group.pages %}
+        <li><a href="{{ item.url | relative_url }}"{% if page.url == item.url %} aria-current="page"{% endif %}>{{ item.title }}</a></li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+    {% endcapture %}
+    <nav class="side" aria-label="Pages">
+      <div class="side-wide">{{ pagelist }}</div>
+      <details class="side-narrow"><summary>Pages</summary>{{ pagelist }}</details>
+    </nav>
+    <main class="content">
+      {% if page.url != "/" %}<h1>{{ page.title }}</h1>{% endif %}
+      {{ content }}
+      <footer class="foot">
+        <p>
+          <a href="{{ site.repo }}">Source on GitHub</a> ·
+          <a href="{{ site.repo }}/blob/main/docs/{{ page.path }}">Edit this page</a> ·
+          <a href="https://railspotting.com">railspotting.com</a>
+        </p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

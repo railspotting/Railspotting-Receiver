@@ -1,0 +1,33 @@
+title: "RailSpotting receiver"
+short: "Receiver docs"
+description: "Listens to railroad radio with RTL-SDR dongles and reports trains to RailSpotting."
+baseurl: "/Railspotting-Receiver"
+url: "https://railspotting.github.io"
+repo: "https://github.com/railspotting/Railspotting-Receiver"
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+defaults:
+  - scope: {path: ""}
+    values: {layout: default}
+exclude: ["contract-*.md", "README.md"]
+links:
+  - {title: "Android app", url: "https://railspotting.github.io/Railspotting-Android/"}
+  - {title: "GitHub", url: "https://github.com/railspotting/Railspotting-Receiver"}
+  - {title: "railspotting.com", url: "https://railspotting.com"}
+nav:
+  - title: "Start"
+    pages:
+      - {title: "Overview", url: "/"}
+  - title: "How it works"
+    pages:
+      - {title: "Railroad radio basics", url: "/radio-basics/"}
+      - {title: "How the receiver identifies signals", url: "/identifying-signals/"}
+      - {title: "How reports reach RailSpotting", url: "/reporting/"}
+      - {title: "SDR and receiver capabilities", url: "/capabilities/"}
+  - title: "Setting up"
+    pages:
+      - {title: "Installing", url: "/installing/"}
+      - {title: "Antennas and RF", url: "/antennas/"}
+      - {title: "Tested hardware", url: "/hardware/"}

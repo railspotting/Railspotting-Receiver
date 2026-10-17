@@ -1,0 +1,40 @@
+---
+title: "RailSpotting receiver"
+permalink: /
+---
+
+<div class="hero" markdown="1">
+
+# RailSpotting receiver
+
+The RailSpotting receiver listens to railroad radio and reports what it hears to
+[RailSpotting](https://railspotting.com), where trains appear on the live map and in alerts. It
+runs on small Linux machines (and as a macOS menu bar app) with one to three **RTL-SDR dongles**
+and, optionally, a **Uniden SR30C** scanner.
+
+It recognises:
+
+- **Voice calls** on the railroad's road, dispatcher and yard channels.
+- **End-of-train (EOT) devices**, decoded: unit number, brake pipe pressure, motion and more.
+- **Head-of-train (HOT) transmissions**, detected and timed.
+- **Defect detector announcements**: which detector, and whether it reported "no defects".
+
+</div>
+
+<div class="cards">
+<a class="card" href="{{ '/radio-basics/' | relative_url }}"><b>Railroad radio basics</b><span>How trains use radio: road and dispatcher channels, EOT, HOT and defect detectors.</span></a>
+<a class="card" href="{{ '/identifying-signals/' | relative_url }}"><b>How the receiver identifies signals</b><span>Watching many channels at once, decoding EOT, recognising detectors.</span></a>
+<a class="card" href="{{ '/reporting/' | relative_url }}"><b>How reports reach RailSpotting</b><span>Linking, the signed API, the offline outbox, and what is sent.</span></a>
+<a class="card" href="{{ '/capabilities/' | relative_url }}"><b>SDR and receiver capabilities</b><span>Dongle jobs, windows, radio checks, and the SR30C scanner.</span></a>
+<a class="card" href="{{ '/installing/' | relative_url }}"><b>Installing</b><span>Debian or Ubuntu, a Proxmox container, or the macOS app.</span></a>
+<a class="card" href="{{ '/antennas/' | relative_url }}"><b>Antennas and RF</b><span>Antennas, diplexers, splitters, coax, preamps and FM filters.</span></a>
+<a class="card" href="{{ '/hardware/' | relative_url }}"><b>Tested hardware</b><span>Dongles, scanners and computers in use today.</span></a>
+</div>
+
+
+## Good to know
+
+- A receiver reports to RailSpotting, a service that is **not open source**. You link a receiver
+  to your RailSpotting account with a code it shows; see [Installing]({{ '/installing/' | relative_url }}).
+- Everything on the radio side is in this repository and can be tried without hardware:
+  `railspotting-receiver run --simulate` feeds it synthetic radio traffic.
