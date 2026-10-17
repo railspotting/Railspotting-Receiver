@@ -1,0 +1,139 @@
+{
+ "outbox_items": [
+  [
+   1,
+   "event",
+   "e1",
+   "open",
+   "{\"event_id\": \"e1\", \"state\": \"open\", \"start_ts\": 1790865400.12, \"end_ts\": null, \"freq\": 160.95, \"ch\": 5, \"kind\": \"voice\", \"peak_rssi\": 420, \"avg_rssi\": 410, \"samples\": 3}",
+   1790865400.5
+  ],
+  [
+   4,
+   "report",
+   null,
+   null,
+   "{\"type\": \"radio_check\", \"ts\": 1790865411.1, \"data\": {\"freq\": 162.55, \"rssi\": 461, \"squelch_open\": 0.8, \"ok\": true, \"error\": null}}",
+   1790865402.0
+  ],
+  [
+   6,
+   "event",
+   "e3",
+   "closed",
+   "{\"event_id\": \"e3\", \"state\": \"closed\", \"start_ts\": 1790865420.0, \"end_ts\": 1790865421.0, \"freq\": 161.1, \"ch\": 7, \"kind\": \"voice\", \"peak_rssi\": 500, \"avg_rssi\": 470, \"samples\": 4}",
+   1790865403.0
+  ],
+  [
+   7,
+   "event",
+   "e4",
+   "closed",
+   "{\"event_id\": \"e4\", \"state\": \"closed\", \"start_ts\": 1790865430.0, \"end_ts\": 1790865431.0, \"freq\": 161.1, \"ch\": 7, \"kind\": \"voice\", \"peak_rssi\": 500, \"avg_rssi\": 470, \"samples\": 4}",
+   1790865403.5
+  ],
+  [
+   8,
+   "event",
+   "e5",
+   "open",
+   "{\"event_id\": \"e5\", \"state\": \"open\", \"start_ts\": 1790865440.0, \"end_ts\": null, \"freq\": 161.1, \"ch\": 7, \"kind\": \"voice\", \"peak_rssi\": 500, \"avg_rssi\": 470, \"samples\": 4}",
+   1790865404.0
+  ],
+  [
+   9,
+   "report",
+   null,
+   null,
+   "{\"type\": \"scan_setup\", \"ts\": 1790865450.0, \"data\": {\"banks\": null, \"fixed\": [\"CH 1 set to 160.9050 MHz\"], \"problems\": []}}",
+   1790865405.5
+  ]
+ ],
+ "outbox_meta": [
+  [
+   "dropped",
+   "1",
+   "text"
+  ]
+ ],
+ "history_events": [
+  [
+   "a",
+   1790865400.5,
+   "voice",
+   "{\"event_id\": \"a\", \"state\": \"closed\", \"start_ts\": 1790865400.5, \"end_ts\": 1790865402.25, \"kind\": \"voice\", \"label\": \"Belton Sub Road\", \"freq\": 161.1}"
+  ],
+  [
+   "b",
+   1790865403.0,
+   "telemetry",
+   "{\"event_id\": \"b\", \"state\": \"closed\", \"start_ts\": null, \"kind\": \"telemetry\", \"label\": \"EOT (end of train)\"}"
+  ]
+ ],
+ "history_signal": [
+  [
+   1790865460.0,
+   "{\"ts\": 1790865460.0, \"snr_db\": 31.2, \"floor\": [-1.5, 2.0]}"
+  ],
+  [
+   1790869200.0,
+   "{\"ts\": 1790869200.0, \"snr_db\": 30.0}"
+  ]
+ ],
+ "schema_outbox": [
+  [
+   "table",
+   "items",
+   "CREATE TABLE items (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            kind TEXT NOT NULL,          -- 'event' or 'report'\n            event_id TEXT,\n            state TEXT,\n            payload TEXT NOT NULL,\n            created REAL NOT NULL)"
+  ],
+  [
+   "index",
+   "items_kind",
+   "CREATE INDEX items_kind ON items(kind, id)"
+  ],
+  [
+   "table",
+   "meta",
+   "CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT)"
+  ],
+  [
+   "index",
+   "sqlite_autoindex_meta_1",
+   null
+  ],
+  [
+   "table",
+   "sqlite_sequence",
+   "CREATE TABLE sqlite_sequence(name,seq)"
+  ]
+ ],
+ "schema_history": [
+  [
+   "table",
+   "events",
+   "CREATE TABLE events (\n            event_id TEXT PRIMARY KEY,\n            start_ts REAL NOT NULL,\n            kind TEXT,\n            payload TEXT NOT NULL)"
+  ],
+  [
+   "index",
+   "events_start",
+   "CREATE INDEX events_start ON events(start_ts)"
+  ],
+  [
+   "table",
+   "signal",
+   "CREATE TABLE signal (\n            ts REAL PRIMARY KEY,\n            payload TEXT NOT NULL)"
+  ],
+  [
+   "index",
+   "sqlite_autoindex_events_1",
+   null
+  ],
+  [
+   "index",
+   "sqlite_autoindex_signal_1",
+   null
+  ]
+ ],
+ "sdr_roles": "{\n  \"vhf\": \"11112222\",\n  \"eot\": \"30001111\",\n  \"eot-2\": \"30002222\"\n}\n",
+ "identity": "{\n  \"device_id\": \"rs-12ab34cd56ef\",\n  \"mac\": \"b8:27:eb:1a:2b:3c\",\n  \"interface\": \"eth0\",\n  \"linked_at\": 1790865400,\n  \"note\": \"caf\\u00e9\"\n}\n"
+}

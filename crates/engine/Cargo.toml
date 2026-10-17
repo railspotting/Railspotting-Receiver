@@ -1,0 +1,46 @@
+[package]
+name = "railspotting-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "railspotting_engine"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive", "env"] }
+crossbeam-channel = "0.5.17"
+libc = "0.2.190"
+libloading = "0.8.9"
+log = "0.4.34"
+num-complex = "0.4.6"
+qrcode = { version = "0.14.1", default-features = false }
+railspotting-common = { version = "2.0.0", path = "../common" }
+railspotting-detect = { version = "2.0.0", path = "../detect" }
+railspotting-dsp = { version = "2.0.0", path = "../dsp" }
+railspotting-proto = { version = "2.0.0", path = "../proto" }
+railspotting-scanner = { version = "2.0.0", path = "../scanner" }
+railspotting-store = { version = "2.0.0", path = "../store" }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order", "float_roundtrip"] }
+sha2 = "0.11.0"
+signal-hook = "0.4.5"
+tiny_http = "0.12.0"
+ureq = "3.4.2"
+uuid = { version = "1.26.1", features = ["v4", "v5"] }
+# speech recognition (whisper.cpp); off by default, see the "speech" feature
+whisper-rs = { version = "0.16.0", optional = true }
+
+[features]
+# Speech recognition with whisper.cpp for detector messages and (optionally) other calls.
+# Without it the receiver still matches detector templates and reports speech as unavailable.
+speech = ["dep:whisper-rs"]
+# Speech on the GPU through Metal (Apple Silicon Macs; the desktop app uses it). macOS only.
+metal = ["speech", "whisper-rs/metal"]
+
+[dev-dependencies]
+railspotting-proto = { version = "2.0.0", path = "../proto", features = ["fake"] }

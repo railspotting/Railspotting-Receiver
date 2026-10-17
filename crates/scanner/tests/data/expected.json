@@ -1,0 +1,891 @@
+{
+ "steps": [
+  {
+   "name": "connect",
+   "log": [
+    "MDL",
+    "VER",
+    "VOL",
+    "SQL"
+   ],
+   "result": {
+    "connected": true,
+    "model": "SR30C",
+    "firmware": "Version 1.01.04",
+    "cable_serial": null,
+    "port": null,
+    "state": "scanning",
+    "busy_reason": null,
+    "freq": null,
+    "volume": 9,
+    "squelch": 2
+   }
+  },
+  {
+   "name": "plan_sync 7",
+   "log": [
+    "PRG",
+    "CIN,1",
+    "CIN,2",
+    "CIN,2,,01602450,AUTO,0,2,0,0",
+    "CIN,3",
+    "CIN,3,,01611900,AUTO,0,2,0,0",
+    "CIN,4",
+    "CIN,4,,01612500,AUTO,0,2,0,0",
+    "CIN,5",
+    "CIN,5,,01609500,AUTO,0,2,0,0",
+    "CIN,6",
+    "CIN,6,,01613100,AUTO,0,2,0,0",
+    "CIN,7",
+    "CIN,7,,01611000,AUTO,0,2,0,0",
+    "CIN,8",
+    "CIN,8,,01613700,AUTO,0,2,0,0",
+    "CIN,9",
+    "CIN,9,,04579375,AUTO,0,0,0,0",
+    "CIN,10",
+    "CIN,10,,04529375,AUTO,0,0,0,0",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": {
+    "banks": null,
+    "fixed": [
+     "CH 2 set to 160.2450 MHz",
+     "CH 3 set to 161.1900 MHz",
+     "CH 4 set to 161.2500 MHz",
+     "CH 5 set to 160.9500 MHz",
+     "CH 6 set to 161.3100 MHz",
+     "CH 7 set to 161.1000 MHz",
+     "CH 8 set to 161.3700 MHz",
+     "CH 9 set to 457.9375 MHz",
+     "CH 10 set to 452.9375 MHz"
+    ],
+    "problems": []
+   },
+   "scanner_plan.json": "{\n  \"config_version\": \"7\",\n  \"managed\": [\n    1,\n    2,\n    3,\n    4,\n    5,\n    6,\n    7,\n    8,\n    9,\n    10\n  ]\n}\n"
+  },
+  {
+   "name": "scan_setup",
+   "log": [
+    "PRG",
+    "SCG",
+    "SCG,0111110110",
+    "CIN,1",
+    "CIN,2",
+    "CIN,3",
+    "CIN,4",
+    "CIN,5",
+    "CIN,6",
+    "CIN,7",
+    "CIN,8",
+    "CIN,9",
+    "CIN,10",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": {
+    "banks": "0111110110",
+    "fixed": [
+     "banks 1111110110 -> 0111110110 (bank 1 = first digit, 0 = scanned)"
+    ],
+    "problems": [
+     "CH 2 holds 160.5, plan says 160.2450"
+    ]
+   }
+  },
+  {
+   "name": "detection_test fail",
+   "log": [
+    "PRG",
+    "CIN,50",
+    "SCG",
+    "CIN,50,,01625500,AUTO,0,2,0,0",
+    "SCG,0111111111",
+    "EPG",
+    "KEY,H,P",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "GLG",
+    "PRG",
+    "CIN,50,,00000000,,,0,1,0",
+    "SCG,0111110110",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": {
+    "ok": false,
+    "freq": 162.55,
+    "channel": 50,
+    "error": "scan never stopped on 162.5500 MHz in 1 s"
+   }
+  },
+  {
+   "name": "radio_check weak",
+   "log": [
+    "PRG",
+    "CIN,1",
+    "CIN,1,,01625500,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01609050,AUTO,0,2,0,0",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": {
+    "freq": 162.55,
+    "squelch_open": 0.0,
+    "ok": false,
+    "error": "NOAA WXJ21 Paris Mountain weak: RSSI 388, squelch open 0%"
+   }
+  },
+  {
+   "name": "reception_test",
+   "log": [
+    "PRG",
+    "CIN,1",
+    "CIN,1,,01625500,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01609050,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01602450,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01611900,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01612500,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01609500,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01613100,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01611000,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01613700,AUTO,0,0,0,0",
+    "EPG",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "PRG",
+    "CIN,1,,01609050,AUTO,0,2,0,0",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": {
+    "verdict": "poor",
+    "detail": "NOAA WXJ21 Paris Mountain barely above the noise (-3)",
+    "reference": {
+     "name": "NOAA WXJ21 Paris Mountain",
+     "freq": 162.55,
+     "squelch_open": 0.0
+    },
+    "channels": {
+     "160.9050": {
+      "ch": 1,
+      "name": "Greenville Dist. Road",
+      "freq": 160.905,
+      "squelch_open": 0.0,
+      "busy": false
+     },
+     "160.2450": {
+      "ch": 2,
+      "name": "Greenville Dist. Dispatcher",
+      "freq": 160.245,
+      "squelch_open": 0.0,
+      "busy": false
+     },
+     "161.1900": {
+      "ch": 3,
+      "name": "Yard",
+      "freq": 161.19,
+      "squelch_open": 0.0,
+      "busy": false
+     },
+     "161.2500": {
+      "ch": 4,
+      "name": "Yard",
+      "freq": 161.25,
+      "squelch_open": 0.0,
+      "busy": false
+     },
+     "160.9500": {
+      "ch": 5,
+      "name": "Charlotte Dist. Road",
+      "freq": 160.95,
+      "squelch_open": 0.0,
+      "busy": false
+     },
+     "161.3100": {
+      "ch": 6,
+      "name": "Charlotte Dist. Dispatcher",
+      "freq": 161.31,
+      "squelch_open": 0.0,
+      "busy": false
+     },
+     "161.1000": {
+      "ch": 7,
+      "name": "Belton Sub Road",
+      "freq": 161.1,
+      "squelch_open": 0.0,
+      "busy": false
+     },
+     "161.3700": {
+      "ch": 8,
+      "name": "Belton Sub Dispatcher (AP)",
+      "freq": 161.37,
+      "squelch_open": 0.0,
+      "busy": false
+     }
+    }
+   }
+  },
+  {
+   "name": "focus start",
+   "log": [
+    "PRG",
+    "SCG",
+    "CIN,151,,04529375,AUTO,0,0,0,0",
+    "SCG,1110111111",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": {
+    "freq": 452.9375,
+    "reason": "auto_eot",
+    "label": "HOT (head of train)",
+    "rssi_trigger": false,
+    "original_scg": "0111110110",
+    "start_ts": 1007.3699999999993,
+    "end_ts": 2807.3699999999994
+   },
+   "focus.json": "{\n  \"freq\": 452.9375,\n  \"reason\": \"auto_eot\",\n  \"label\": \"HOT (head of train)\",\n  \"rssi_trigger\": false,\n  \"original_scg\": \"0111110110\",\n  \"start_ts\": 1007.3699999999993,\n  \"end_ts\": 2807.3699999999994\n}\n"
+  },
+  {
+   "name": "focus end",
+   "log": [
+    "PRG",
+    "CIN,151,,00000000,,,0,1,0",
+    "SCG,0111110110",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": null,
+   "focus.json": null
+  },
+  {
+   "name": "recover_after_crash",
+   "log": [
+    "PRG",
+    "CIN,1,,01609050,AUTO,0,2,0,0",
+    "CIN,50,,00000000,,,0,1,0",
+    "SCG,0111110110",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": true,
+   "scanner_restore.json": null
+  },
+  {
+   "name": "channel_memory",
+   "log": [
+    "PRG",
+    "CIN,1",
+    "CIN,2",
+    "CIN,3",
+    "CIN,4",
+    "CIN,5",
+    "CIN,6",
+    "CIN,7",
+    "CIN,8",
+    "CIN,9",
+    "CIN,10",
+    "CIN,11",
+    "CIN,12",
+    "CIN,13",
+    "CIN,14",
+    "CIN,15",
+    "CIN,16",
+    "CIN,17",
+    "CIN,18",
+    "CIN,19",
+    "CIN,20",
+    "CIN,21",
+    "CIN,22",
+    "CIN,23",
+    "CIN,24",
+    "CIN,25",
+    "CIN,26",
+    "CIN,27",
+    "CIN,28",
+    "CIN,29",
+    "CIN,30",
+    "CIN,31",
+    "CIN,32",
+    "CIN,33",
+    "CIN,34",
+    "CIN,35",
+    "CIN,36",
+    "CIN,37",
+    "CIN,38",
+    "CIN,39",
+    "CIN,40",
+    "CIN,41",
+    "CIN,42",
+    "CIN,43",
+    "CIN,44",
+    "CIN,45",
+    "CIN,46",
+    "CIN,47",
+    "CIN,48",
+    "CIN,49",
+    "CIN,50",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": {
+    "channels": [
+     {
+      "ch": 1,
+      "freq": 160.905,
+      "lockout": false
+     },
+     {
+      "ch": 2,
+      "freq": 160.245,
+      "lockout": false
+     },
+     {
+      "ch": 3,
+      "freq": 161.19,
+      "lockout": false
+     },
+     {
+      "ch": 4,
+      "freq": 161.25,
+      "lockout": false
+     },
+     {
+      "ch": 5,
+      "freq": 160.95,
+      "lockout": false
+     },
+     {
+      "ch": 6,
+      "freq": 161.31,
+      "lockout": false
+     },
+     {
+      "ch": 7,
+      "freq": 161.1,
+      "lockout": false
+     },
+     {
+      "ch": 8,
+      "freq": 161.37,
+      "lockout": false
+     },
+     {
+      "ch": 9,
+      "freq": 457.9375,
+      "lockout": false
+     },
+     {
+      "ch": 10,
+      "freq": 452.9375,
+      "lockout": false
+     },
+     {
+      "ch": 11,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 12,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 13,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 14,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 15,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 16,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 17,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 18,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 19,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 20,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 21,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 22,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 23,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 24,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 25,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 26,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 27,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 28,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 29,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 30,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 31,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 32,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 33,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 34,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 35,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 36,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 37,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 38,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 39,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 40,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 41,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 42,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 43,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 44,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 45,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 46,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 47,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 48,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 49,
+      "freq": null,
+      "lockout": true
+     },
+     {
+      "ch": 50,
+      "freq": null,
+      "lockout": true
+     }
+    ]
+   }
+  },
+  {
+   "name": "plan_sync 8",
+   "log": [
+    "PRG",
+    "CIN,1",
+    "CIN,1,,01609200,AUTO,0,2,0,0",
+    "CIN,2",
+    "CIN,3",
+    "CIN,5",
+    "CIN,6",
+    "CIN,7",
+    "CIN,8",
+    "CIN,9",
+    "CIN,10",
+    "CIN,4,,00000000,,,0,1,0",
+    "EPG",
+    "KEY,H,P"
+   ],
+   "result": {
+    "banks": null,
+    "fixed": [
+     "CH 1 set to 160.9200 MHz",
+     "CH 4 cleared"
+    ],
+    "problems": []
+   },
+   "scanner_plan.json": "{\n  \"config_version\": \"8\",\n  \"managed\": [\n    1,\n    2,\n    3,\n    5,\n    6,\n    7,\n    8,\n    9,\n    10\n  ]\n}\n"
+  },
+  {
+   "name": "role eot",
+   "log": [
+    "PRG",
+    "SCG",
+    "CIN,151,,04579375,AUTO,0,0,0,0",
+    "SCG,1110111111",
+    "EPG",
+    "KEY,H,P",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR",
+    "PWR"
+   ],
+   "result": "eot"
+  },
+  {
+   "name": "polls parked",
+   "log": [
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR",
+    "GLG",
+    "PWR"
+   ],
+   "result": {
+    "state": "parked",
+    "freq": 457.9375,
+    "events": 0
+   }
+  },
+  {
+   "name": "set_volume",
+   "log": [
+    "VOL,4"
+   ],
+   "result": 4
+  },
+  {
+   "name": "disconnect",
+   "log": [],
+   "result": {
+    "error": "serial error: device disconnected",
+    "info": {
+     "connected": false,
+     "model": null,
+     "firmware": null,
+     "cable_serial": null,
+     "port": null,
+     "state": null,
+     "busy_reason": null,
+     "freq": null,
+     "volume": null,
+     "squelch": null
+    }
+   }
+  }
+ ],
+ "final": {
+  "banks": "1110111111",
+  "channels": {
+   "1": {
+    "freq": 1609200,
+    "delay": "1",
+    "lockout": "0"
+   },
+   "2": {
+    "freq": 1602450,
+    "delay": "1",
+    "lockout": "0"
+   },
+   "3": {
+    "freq": 1611900,
+    "delay": "1",
+    "lockout": "0"
+   },
+   "5": {
+    "freq": 1609500,
+    "delay": "1",
+    "lockout": "0"
+   },
+   "6": {
+    "freq": 1613100,
+    "delay": "1",
+    "lockout": "0"
+   },
+   "7": {
+    "freq": 1611000,
+    "delay": "1",
+    "lockout": "0"
+   },
+   "8": {
+    "freq": 1613700,
+    "delay": "1",
+    "lockout": "0"
+   },
+   "9": {
+    "freq": 4579375,
+    "delay": "0",
+    "lockout": "0"
+   },
+   "10": {
+    "freq": 4529375,
+    "delay": "0",
+    "lockout": "0"
+   },
+   "151": {
+    "freq": 4579375,
+    "delay": "0",
+    "lockout": "0"
+   }
+  }
+ }
+}

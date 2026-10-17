@@ -1,0 +1,244 @@
+{
+ "iq_file": "fixtures/local/dsp/eot_bursts.cu8",
+ "format": "cu8 interleaved I/Q, sample = b/127.5 - (1+1j)",
+ "device": {
+  "serial": "SIMEOT01",
+  "role": "eot",
+  "sample_rate": 2400000.0,
+  "gain": 40.2,
+  "name": "UHF SDR"
+ },
+ "plan": {
+  "config_version": "fixture",
+  "heartbeat_interval_s": 60,
+  "radio_check_interval_s": 1800,
+  "poll_interval_s": 0.25,
+  "reference": {
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55
+  },
+  "channels": [
+   {
+    "ch": 1,
+    "freq": 160.905,
+    "railroad": "NS",
+    "label": "Greenville Dist. Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 2,
+    "freq": 160.245,
+    "railroad": "NS",
+    "label": "Greenville Dist. Dispatcher",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 3,
+    "freq": 161.19,
+    "railroad": "NS",
+    "label": "Yard",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 4,
+    "freq": 161.25,
+    "railroad": "NS",
+    "label": "Yard",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 5,
+    "freq": 160.95,
+    "railroad": "NS",
+    "label": "Charlotte Dist. Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 6,
+    "freq": 161.31,
+    "railroad": "NS",
+    "label": "Charlotte Dist. Dispatcher",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 7,
+    "freq": 161.1,
+    "railroad": "CSX",
+    "label": "Belton Sub Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 8,
+    "freq": 161.37,
+    "railroad": "CSX",
+    "label": "Belton Sub Dispatcher (AP)",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 9,
+    "freq": 457.9375,
+    "railroad": null,
+    "label": "EOT (end of train)",
+    "kind": "telemetry",
+    "proximity": true
+   },
+   {
+    "ch": 10,
+    "freq": 452.9375,
+    "railroad": null,
+    "label": "HOT (head of train)",
+    "kind": "telemetry",
+    "proximity": true
+   }
+  ],
+  "upload": {
+   "max_batch": 200,
+   "flush_interval_s": 2
+  }
+ },
+ "sdr_settings": {
+  "record_keep": 500,
+  "record_bursts": false
+ },
+ "block_samples": 98304,
+ "rate": 2400000.0,
+ "blocks": 147,
+ "block_ts": "t0 = 0; block k covers [k*B/rate, (k+1)*B/rate) and is processed with ts = (k+1)*B/rate",
+ "center_mhz": 458.1385,
+ "window_mhz": [
+  457.0345,
+  459.2425
+ ],
+ "events": [
+  {
+   "event_id": "40cc6147-244e-4961-b0f5-199b88235beb",
+   "state": "open",
+   "start_ts": 1.5,
+   "end_ts": null,
+   "freq": 457.9375,
+   "ch": 9,
+   "kind": "telemetry",
+   "peak_rssi": 250,
+   "avg_rssi": 250,
+   "samples": 2
+  },
+  {
+   "event_id": "40cc6147-244e-4961-b0f5-199b88235beb",
+   "state": "closed",
+   "start_ts": 1.5,
+   "end_ts": 1.66,
+   "freq": 457.9375,
+   "ch": 9,
+   "kind": "telemetry",
+   "peak_rssi": 250,
+   "avg_rssi": 248,
+   "samples": 8,
+   "telemetry": {
+    "protocol": "eot",
+    "chaining": 3,
+    "battery_condition": 3,
+    "message_type": 0,
+    "unit_id": 75618,
+    "brake_pipe_psi": 88,
+    "battery_charge_raw": 0,
+    "valve_circuit_ok": true,
+    "confirmation": true,
+    "turbine": true,
+    "motion": true,
+    "marker_battery_weak": false,
+    "marker_light": false,
+    "decoder": "railspotting-eot-1",
+    "crc_ok": true,
+    "corrected_bits": 0,
+    "packets": 1
+   }
+  },
+  {
+   "event_id": "9e3fa341-facc-484a-bc9d-3dd8e641b38c",
+   "state": "open",
+   "start_ts": 3.99,
+   "end_ts": null,
+   "freq": 457.9375,
+   "ch": 9,
+   "kind": "telemetry",
+   "peak_rssi": 242,
+   "avg_rssi": 242,
+   "samples": 2
+  },
+  {
+   "event_id": "9e3fa341-facc-484a-bc9d-3dd8e641b38c",
+   "state": "closed",
+   "start_ts": 3.99,
+   "end_ts": 4.28,
+   "freq": 457.9375,
+   "ch": 9,
+   "kind": "telemetry",
+   "peak_rssi": 243,
+   "avg_rssi": 242,
+   "samples": 14,
+   "telemetry": {
+    "protocol": "eot",
+    "chaining": 3,
+    "battery_condition": 3,
+    "message_type": 0,
+    "unit_id": 4157,
+    "brake_pipe_psi": 0,
+    "battery_charge_raw": 0,
+    "valve_circuit_ok": true,
+    "confirmation": true,
+    "turbine": true,
+    "motion": false,
+    "marker_battery_weak": false,
+    "marker_light": false,
+    "decoder": "railspotting-eot-1",
+    "crc_ok": true,
+    "corrected_bits": 0,
+    "packets": 2
+   }
+  }
+ ],
+ "final": {
+  "channels": [
+   {
+    "freq": 457.9375,
+    "ch": 9,
+    "label": "EOT (end of train)",
+    "kind": "telemetry",
+    "floor_db": 17.9,
+    "receiving": false
+   }
+  ],
+  "clipping": 0.0,
+  "blocks": 147,
+  "reference": null
+ },
+ "reference_samples": [],
+ "last_eot": {
+  "ts": 4.28,
+  "protocol": "eot",
+  "chaining": 3,
+  "battery_condition": 3,
+  "message_type": 0,
+  "unit_id": 4157,
+  "brake_pipe_psi": 0,
+  "battery_charge_raw": 0,
+  "valve_circuit_ok": true,
+  "confirmation": true,
+  "turbine": true,
+  "motion": false,
+  "marker_battery_weak": false,
+  "marker_light": false,
+  "decoder": "railspotting-eot-1",
+  "crc_ok": true,
+  "corrected_bits": 0,
+  "packets": 2
+ }
+}

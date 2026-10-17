@@ -1,0 +1,53 @@
+{
+  "id": "csx-edd-v1",
+  "name": "CSX equipment defect detector",
+  "railroad": "CSX",
+  "description": "CSX equipment defect detectors: the all-clear is said twice, then the total axle count, then \"End of transmission\".",
+  "template": "CSX equipment defect detector, milepost {milepost}. No defects. No defects. Total axle: {axles}. End of transmission.",
+  "variables": [
+    {
+      "name": "milepost",
+      "type": "decimal",
+      "decimals": 1,
+      "min": 0,
+      "max": 3000,
+      "spoken": "digits"
+    },
+    {
+      "name": "axles",
+      "type": "integer",
+      "min": 4,
+      "max": 1000,
+      "spoken": "digits"
+    },
+    {
+      "name": "speed",
+      "type": "integer",
+      "min": 0,
+      "max": 90,
+      "spoken": "digits"
+    }
+  ],
+  "audio": {
+    "filter": "voice"
+  },
+  "all_clear": {
+    "phrase": "no defects",
+    "times": 2,
+    "min_wording": 0.6
+  },
+  "defect_words": [
+    "defect detected",
+    "hot box",
+    "hot wheel",
+    "dragging",
+    "temperature",
+    "high load",
+    "wide load"
+  ],
+  "trigger": {
+    "min_s": 5,
+    "max_s": 45,
+    "max_other_channels": 1
+  }
+}

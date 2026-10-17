@@ -1,0 +1,3045 @@
+{
+ "template": "fixtures/detect/template/ns-475.8.json",
+ "features_clip": "20261011-014506.258",
+ "build_clips": [
+  "20261011-014506.258",
+  "20261011-014525.403",
+  "20261011-015545.393",
+  "20261011-015604.540",
+  "20261011-033727.683",
+  "20261011-033750.280"
+ ],
+ "rhythm_profile_six": [
+  -0.1046,
+  1.6455,
+  2.6818,
+  2.6831,
+  2.6931,
+  2.6993,
+  2.6975,
+  2.7014,
+  2.7157,
+  2.7031,
+  2.6952,
+  2.1839,
+  1.4586,
+  0.7284,
+  0.119,
+  -0.5014,
+  -0.6921,
+  -0.6049,
+  -0.4759,
+  -0.536,
+  -0.6531,
+  -0.6372,
+  -0.6262,
+  -0.7209,
+  -0.7224,
+  -0.6538,
+  -0.3818,
+  -0.1285,
+  -0.0719,
+  -0.0552,
+  -0.0679,
+  -0.0698,
+  -0.0057,
+  -0.0358,
+  -0.0384,
+  0.1206,
+  0.1794,
+  0.1898,
+  0.2956,
+  0.4096,
+  0.3706,
+  0.4386,
+  0.4659,
+  0.4806,
+  0.4784,
+  0.4938,
+  0.408,
+  0.3,
+  0.2082,
+  0.2323,
+  0.1541,
+  0.2694,
+  0.3908,
+  0.446,
+  0.4192,
+  0.4701,
+  0.3403,
+  0.1164,
+  -0.0484,
+  -0.1456,
+  -0.1664,
+  -0.1619,
+  -0.0231,
+  0.0411,
+  0.0601,
+  -0.0193,
+  -0.0743,
+  -0.0086,
+  0.0919,
+  0.1328,
+  0.1796,
+  0.2367,
+  0.0402,
+  -0.1264,
+  -0.1327,
+  -0.0461,
+  0.0389,
+  0.2253,
+  0.4242,
+  0.4265,
+  0.2416,
+  0.0645,
+  -0.1596,
+  -0.379,
+  -0.5716,
+  -0.5308,
+  -0.4724,
+  -0.3135,
+  -0.2584,
+  -0.2587,
+  -0.4742,
+  -0.5557,
+  -0.6359,
+  -0.5087,
+  -0.3439,
+  -0.0392,
+  0.2057,
+  0.3824,
+  0.4164,
+  0.5067,
+  0.5406,
+  0.4968,
+  0.4852,
+  0.4739,
+  0.4558,
+  0.4237,
+  0.3836,
+  0.2804,
+  0.1157,
+  -0.1489,
+  -0.4024,
+  -0.5738,
+  -0.558,
+  -0.4587,
+  -0.2181,
+  0.0842,
+  0.3283,
+  0.3956,
+  0.4462,
+  0.4095,
+  0.2743,
+  0.0899,
+  -0.1413,
+  -0.2461,
+  -0.3931,
+  -0.4526,
+  -0.4236,
+  -0.3699,
+  -0.4229,
+  -0.3572,
+  -0.3581,
+  -0.3563,
+  -0.3641,
+  -0.4712,
+  -0.4788,
+  -0.473,
+  -0.371,
+  -0.1661,
+  0.1546,
+  0.3873,
+  0.5927,
+  0.6569,
+  0.6371,
+  0.4809,
+  0.3557,
+  0.2949,
+  0.2696,
+  0.2714,
+  0.3942,
+  0.4179,
+  0.4633,
+  0.4644,
+  0.4854,
+  0.4691,
+  0.4709,
+  0.3753,
+  0.2679,
+  0.1055,
+  0.0139,
+  -0.0961,
+  -0.1589,
+  -0.2805,
+  -0.2688,
+  -0.2803,
+  -0.2691,
+  -0.2228,
+  -0.0757,
+  0.0625,
+  0.1521,
+  0.2862,
+  0.4134,
+  0.4218,
+  0.2428,
+  0.059,
+  -0.0262,
+  -0.086,
+  -0.0507,
+  0.0688,
+  0.1648,
+  0.0787,
+  0.0056,
+  -0.1249,
+  -0.1785,
+  -0.2508,
+  -0.2729,
+  -0.3579,
+  -0.3931,
+  -0.4055,
+  -0.2432,
+  -0.1289,
+  0.0237,
+  0.2741,
+  0.447,
+  0.4703,
+  0.5374,
+  0.609,
+  0.6063,
+  0.6001,
+  0.6179,
+  0.5999,
+  0.5261,
+  0.4597,
+  0.4294,
+  0.3951,
+  0.2938,
+  0.2016,
+  0.0489,
+  -0.113,
+  -0.2384,
+  -0.2877,
+  -0.3314,
+  -0.3656,
+  -0.3132,
+  -0.3758,
+  -0.4841,
+  -0.3588,
+  -0.3203,
+  -0.402,
+  -0.2313,
+  -0.007,
+  0.0074,
+  0.1458,
+  0.3103,
+  0.327,
+  0.2929,
+  0.246,
+  0.2239,
+  0.1569,
+  -0.0048,
+  -0.1405,
+  -0.3089,
+  -0.3314,
+  -0.3397,
+  -0.2982,
+  -0.1228,
+  0.1114,
+  0.2012,
+  0.2945,
+  0.4229,
+  0.4043,
+  0.3917,
+  0.3684,
+  0.2509,
+  0.1092,
+  -0.0397,
+  -0.2795,
+  -0.5291,
+  -0.5534,
+  -0.5362,
+  -0.4195,
+  -0.2967,
+  -0.196,
+  -0.2774,
+  -0.3971,
+  -0.521,
+  -0.5082,
+  -0.3672,
+  -0.1346,
+  0.1224,
+  0.3558,
+  0.494,
+  0.5255,
+  0.5555,
+  0.5446,
+  0.5417,
+  0.5514,
+  0.5379,
+  0.4954,
+  0.5302,
+  0.5371,
+  0.4732,
+  0.4465,
+  0.4619,
+  0.4117,
+  0.3507,
+  0.3266,
+  0.2144,
+  -0.0595,
+  -0.3415,
+  -0.4465,
+  -0.6004,
+  -0.7177,
+  -0.6207,
+  -0.3791,
+  -0.2491,
+  -0.0487,
+  0.1709,
+  0.2766,
+  0.2492,
+  0.2328,
+  0.1717,
+  0.0784,
+  0.0621,
+  0.0412,
+  0.0287,
+  0.1145,
+  0.1838,
+  0.3113,
+  0.3949,
+  0.3578,
+  0.3132,
+  0.3579,
+  0.3058,
+  0.2452,
+  0.15,
+  -0.0756,
+  -0.2479,
+  -0.4602,
+  -0.6369,
+  -0.6608,
+  -0.5675,
+  -0.4622,
+  -0.2978,
+  -0.0914,
+  0.0252,
+  0.1131,
+  0.0894,
+  -0.01,
+  -0.1094,
+  -0.1871,
+  -0.2674,
+  -0.3659,
+  -0.4603,
+  -0.4235,
+  -0.2733,
+  -0.1007,
+  0.0669,
+  0.2828,
+  0.2828,
+  0.0291,
+  -0.2076,
+  -0.4279,
+  -0.4444,
+  -0.3723,
+  -0.1364,
+  0.0944,
+  0.351,
+  0.3703,
+  0.3025,
+  0.2257,
+  0.0505,
+  -0.1882,
+  -0.355,
+  -0.2734,
+  -0.3318,
+  -0.4396,
+  -0.3268,
+  -0.3369,
+  -0.4963,
+  -0.3935,
+  -0.1419,
+  -0.0443,
+  0.1836,
+  0.41,
+  0.4703,
+  0.5226,
+  0.5792,
+  0.5838,
+  0.5858,
+  0.6095,
+  0.5696,
+  0.5337,
+  0.5234,
+  0.4762,
+  0.4074,
+  0.3993,
+  0.4066,
+  0.3899,
+  0.3992,
+  0.3183,
+  0.2108,
+  0.0542,
+  -0.2138,
+  -0.5102,
+  -0.5862,
+  -0.7187,
+  -0.8163,
+  -0.57,
+  -0.2573,
+  -0.1018,
+  0.1145,
+  0.3049,
+  0.2553,
+  0.1695,
+  0.0422,
+  -0.0522,
+  -0.1224,
+  -0.1581,
+  -0.0964,
+  0.0872,
+  0.1941,
+  0.3318,
+  0.3979,
+  0.3606,
+  0.2967,
+  0.324,
+  0.2771,
+  0.203,
+  0.061,
+  -0.0819,
+  -0.2607,
+  -0.4771,
+  -0.5323,
+  -0.5709,
+  -0.515,
+  -0.4163,
+  -0.2301,
+  -0.0954,
+  0.0181,
+  0.0661,
+  0.0391,
+  -0.0571,
+  -0.206,
+  -0.2852,
+  -0.5224,
+  -0.6675,
+  -0.6842,
+  -0.6887,
+  -0.7402,
+  -0.6625,
+  -0.5906,
+  -0.6117,
+  -0.6092,
+  -0.6201,
+  -0.5695,
+  -0.5839,
+  -0.6178,
+  -0.6511,
+  -0.6174,
+  -0.6759,
+  -0.7143,
+  -0.7084,
+  -0.6629,
+  -0.7175,
+  -0.6297,
+  -0.6599,
+  -0.8035,
+  -0.823,
+  -0.7146,
+  -0.8367,
+  -0.8487,
+  -0.6801,
+  -0.7322,
+  -0.7602,
+  -0.7137,
+  -0.6581,
+  -0.6215,
+  -0.6083,
+  -0.6547,
+  -0.6562,
+  -0.6298,
+  -0.6805,
+  -0.6648,
+  -0.6444,
+  -0.6344,
+  -0.6534,
+  -0.63,
+  -0.6838,
+  -0.7192,
+  -0.7088,
+  -0.7521,
+  -0.9524,
+  -0.9188,
+  -0.9695,
+  -0.96,
+  -0.6556,
+  0.1263,
+  0.8141,
+  1.554,
+  2.2044,
+  2.5901,
+  2.6548,
+  2.6421,
+  2.6372,
+  2.6288,
+  2.6613,
+  2.658,
+  2.6752,
+  2.701,
+  2.6998,
+  2.391,
+  1.2486,
+  -0.0808
+ ],
+ "quiet_frames_six": [
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  21,
+  22,
+  23,
+  24,
+  59,
+  74,
+  75,
+  82,
+  83,
+  84,
+  85,
+  86,
+  91,
+  92,
+  93,
+  94,
+  110,
+  111,
+  112,
+  113,
+  123,
+  124,
+  126,
+  127,
+  129,
+  130,
+  132,
+  134,
+  135,
+  159,
+  162,
+  163,
+  174,
+  175,
+  183,
+  185,
+  187,
+  188,
+  208,
+  209,
+  211,
+  212,
+  213,
+  215,
+  216,
+  218,
+  219,
+  230,
+  231,
+  232,
+  246,
+  247,
+  248,
+  252,
+  253,
+  254,
+  255,
+  256
+ ],
+ "clips": [
+  {
+   "clip": "20261011-013355.052",
+   "detector": false,
+   "seconds": 1.7521875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-013836.123",
+   "detector": false,
+   "seconds": 5.89375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.32,
+    "opening": [
+     0.75,
+     0.07,
+     0.15,
+     0.09
+    ],
+    "ending": [
+     0.1,
+     -0.05,
+     0.63
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.32,
+    "opening": [
+     0.75,
+     0.07,
+     0.15,
+     0.09
+    ],
+    "ending": [
+     0.1,
+     -0.05,
+     0.63
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-014218.938",
+   "detector": false,
+   "seconds": 4.3805,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.5,
+    "opening": [
+     0.87,
+     0.03,
+     0.09,
+     0.07
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.5,
+    "opening": [
+     0.87,
+     0.03,
+     0.09,
+     0.07
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-014506.258",
+   "detector": true,
+   "seconds": 9.6768125,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.85,
+    "opening": [
+     0.92,
+     0.75,
+     0.71,
+     0.79
+    ],
+    "ending": [
+     0.72,
+     0.7,
+     0.87
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 131,
+    "opening_frame": 0,
+    "ending_frame": 260
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.85,
+    "opening": [
+     0.92,
+     0.75,
+     0.71,
+     0.79
+    ],
+    "ending": [
+     0.72,
+     0.7,
+     0.87
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 131,
+    "opening_frame": 0,
+    "ending_frame": 260,
+    "length_s": 9.68
+   }
+  },
+  {
+   "clip": "20261011-014525.403",
+   "detector": true,
+   "seconds": 9.716625,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.82,
+    "opening": [
+     0.92,
+     0.72,
+     0.64,
+     0.7
+    ],
+    "ending": [
+     0.69,
+     0.71,
+     0.88
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 133,
+    "opening_frame": 2,
+    "ending_frame": 262
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.82,
+    "opening": [
+     0.92,
+     0.72,
+     0.64,
+     0.7
+    ],
+    "ending": [
+     0.69,
+     0.71,
+     0.88
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 133,
+    "opening_frame": 2,
+    "ending_frame": 262,
+    "length_s": 9.72
+   }
+  },
+  {
+   "clip": "20261011-014633.764",
+   "detector": false,
+   "seconds": 6.1725,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.56,
+    "opening": [
+     0.89,
+     -0.07,
+     0.19,
+     0.17
+    ],
+    "ending": [
+     0.05,
+     0.14,
+     0.67
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.56,
+    "opening": [
+     0.89,
+     -0.07,
+     0.19,
+     0.17
+    ],
+    "ending": [
+     0.05,
+     0.14,
+     0.67
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-014653.701",
+   "detector": false,
+   "seconds": 17.20325,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.54,
+    "opening": [
+     0.91,
+     0.04,
+     0.21,
+     0.04
+    ],
+    "ending": [
+     -0.01,
+     -0.02,
+     0.77
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.54,
+    "opening": [
+     0.91,
+     0.04,
+     0.21,
+     0.04
+    ],
+    "ending": [
+     -0.01,
+     -0.02,
+     0.77
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-014701.474",
+   "detector": false,
+   "seconds": 3.7035,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.46,
+    "opening": [
+     0.86,
+     0.06,
+     0.1,
+     0.02
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.46,
+    "opening": [
+     0.86,
+     0.06,
+     0.1,
+     0.02
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015008.418",
+   "detector": false,
+   "seconds": 3.504375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.49,
+    "opening": [
+     0.86,
+     -0.11,
+     0.2,
+     0.05
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.49,
+    "opening": [
+     0.86,
+     -0.11,
+     0.2,
+     0.05
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015145.089",
+   "detector": false,
+   "seconds": 1.9115,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015401.190",
+   "detector": false,
+   "seconds": 1.712375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015545.393",
+   "detector": true,
+   "seconds": 9.6768125,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.84,
+    "opening": [
+     0.92,
+     0.72,
+     0.71,
+     0.76
+    ],
+    "ending": [
+     0.71,
+     0.72,
+     0.88
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 131,
+    "opening_frame": 0,
+    "ending_frame": 260
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.84,
+    "opening": [
+     0.92,
+     0.72,
+     0.71,
+     0.76
+    ],
+    "ending": [
+     0.71,
+     0.72,
+     0.88
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 131,
+    "opening_frame": 0,
+    "ending_frame": 260,
+    "length_s": 9.68
+   }
+  },
+  {
+   "clip": "20261011-015604.540",
+   "detector": true,
+   "seconds": 9.716625,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.85,
+    "opening": [
+     0.93,
+     0.74,
+     0.74,
+     0.72
+    ],
+    "ending": [
+     0.74,
+     0.72,
+     0.89
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 132,
+    "opening_frame": 1,
+    "ending_frame": 261
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.85,
+    "opening": [
+     0.93,
+     0.74,
+     0.74,
+     0.72
+    ],
+    "ending": [
+     0.74,
+     0.72,
+     0.89
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 132,
+    "opening_frame": 1,
+    "ending_frame": 261,
+    "length_s": 9.72
+   }
+  },
+  {
+   "clip": "20261011-015706.803",
+   "detector": false,
+   "seconds": 1.07525,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015710.081",
+   "detector": false,
+   "seconds": 2.269875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.13,
+    "opening": [
+     null,
+     -0.07,
+     0.06,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.13,
+    "opening": [
+     null,
+     -0.07,
+     0.06,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015722.915",
+   "detector": false,
+   "seconds": 2.4291875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.4,
+    "opening": [
+     0.85,
+     -0.11,
+     0.29,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.4,
+    "opening": [
+     0.85,
+     -0.11,
+     0.29,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015730.939",
+   "detector": false,
+   "seconds": 4.7786875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.1,
+    "opening": [
+     0.27,
+     0.0,
+     0.17,
+     0.09
+    ],
+    "ending": [
+     0.07,
+     0.09,
+     0.14
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.1,
+    "opening": [
+     0.27,
+     0.0,
+     0.17,
+     0.09
+    ],
+    "ending": [
+     0.07,
+     0.09,
+     0.14
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015735.465",
+   "detector": false,
+   "seconds": 2.30975,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.45,
+    "opening": [
+     0.83,
+     0.03,
+     0.3,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.45,
+    "opening": [
+     0.83,
+     0.03,
+     0.3,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015736.810",
+   "detector": false,
+   "seconds": 1.1946875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015745.866",
+   "detector": false,
+   "seconds": 4.53975,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.52,
+    "opening": [
+     0.84,
+     -0.02,
+     0.14,
+     0.15
+    ],
+    "ending": [
+     0.21,
+     0.11,
+     0.78
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.52,
+    "opening": [
+     0.84,
+     -0.02,
+     0.14,
+     0.15
+    ],
+    "ending": [
+     0.21,
+     0.11,
+     0.78
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015747.173",
+   "detector": false,
+   "seconds": 1.4734375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015753.224",
+   "detector": false,
+   "seconds": 5.017625,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.49,
+    "opening": [
+     0.89,
+     -0.0,
+     0.01,
+     0.05
+    ],
+    "ending": [
+     0.1,
+     0.11,
+     0.76
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.49,
+    "opening": [
+     0.89,
+     -0.0,
+     0.01,
+     0.05
+    ],
+    "ending": [
+     0.1,
+     0.11,
+     0.76
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-015800.576",
+   "detector": false,
+   "seconds": 2.269875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.46,
+    "opening": [
+     0.85,
+     -0.12,
+     0.31,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.46,
+    "opening": [
+     0.85,
+     -0.12,
+     0.31,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-020140.967",
+   "detector": false,
+   "seconds": 1.3141875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-023740.409",
+   "detector": false,
+   "seconds": 2.469,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.39,
+    "opening": [
+     0.77,
+     -0.06,
+     0.26,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.39,
+    "opening": [
+     0.77,
+     -0.06,
+     0.26,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-023752.841",
+   "detector": false,
+   "seconds": 3.345125,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.51,
+    "opening": [
+     0.89,
+     0.0,
+     0.19,
+     0.15
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.51,
+    "opening": [
+     0.89,
+     0.0,
+     0.19,
+     0.15
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-023802.718",
+   "detector": false,
+   "seconds": 2.0309375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-023818.969",
+   "detector": false,
+   "seconds": 2.668125,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.42,
+    "opening": [
+     0.9,
+     -0.07,
+     0.26,
+     -0.06
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.42,
+    "opening": [
+     0.9,
+     -0.07,
+     0.26,
+     -0.06
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-025656.977",
+   "detector": false,
+   "seconds": 2.5885,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.33,
+    "opening": [
+     0.73,
+     -0.07,
+     0.22,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.33,
+    "opening": [
+     0.73,
+     -0.07,
+     0.22,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-025853.682",
+   "detector": false,
+   "seconds": 3.42475,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.44,
+    "opening": [
+     0.86,
+     -0.11,
+     0.07,
+     0.13
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.44,
+    "opening": [
+     0.86,
+     -0.11,
+     0.07,
+     0.13
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-025900.019",
+   "detector": false,
+   "seconds": 3.504375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.45,
+    "opening": [
+     0.85,
+     -0.05,
+     0.24,
+     -0.03
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.45,
+    "opening": [
+     0.85,
+     -0.05,
+     0.24,
+     -0.03
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-025922.295",
+   "detector": false,
+   "seconds": 6.0131875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.42,
+    "opening": [
+     0.88,
+     -0.17,
+     0.09,
+     -0.05
+    ],
+    "ending": [
+     0.1,
+     0.03,
+     0.73
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.42,
+    "opening": [
+     0.88,
+     -0.17,
+     0.09,
+     -0.05
+    ],
+    "ending": [
+     0.1,
+     0.03,
+     0.73
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-025931.278",
+   "detector": false,
+   "seconds": 5.7344375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.47,
+    "opening": [
+     0.89,
+     -0.0,
+     0.01,
+     0.09
+    ],
+    "ending": [
+     0.06,
+     0.11,
+     0.73
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.47,
+    "opening": [
+     0.89,
+     -0.0,
+     0.01,
+     0.09
+    ],
+    "ending": [
+     0.06,
+     0.11,
+     0.73
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-025951.609",
+   "detector": false,
+   "seconds": 15.013,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.5,
+    "opening": [
+     0.89,
+     0.02,
+     0.12,
+     -0.1
+    ],
+    "ending": [
+     0.07,
+     0.15,
+     0.7
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.5,
+    "opening": [
+     0.89,
+     0.02,
+     0.12,
+     -0.1
+    ],
+    "ending": [
+     0.07,
+     0.15,
+     0.7
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-030006.457",
+   "detector": false,
+   "seconds": 6.132625,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.51,
+    "opening": [
+     0.9,
+     -0.08,
+     0.12,
+     0.11
+    ],
+    "ending": [
+     0.11,
+     0.14,
+     0.77
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.51,
+    "opening": [
+     0.9,
+     -0.08,
+     0.12,
+     0.11
+    ],
+    "ending": [
+     0.11,
+     0.14,
+     0.77
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-030010.683",
+   "detector": false,
+   "seconds": 2.548625,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.39,
+    "opening": [
+     0.86,
+     -0.09,
+     0.24,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.39,
+    "opening": [
+     0.86,
+     -0.09,
+     0.24,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-033120.761",
+   "detector": false,
+   "seconds": 3.9424375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.46,
+    "opening": [
+     0.87,
+     -0.12,
+     0.14,
+     0.03
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.46,
+    "opening": [
+     0.87,
+     -0.12,
+     0.14,
+     0.03
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-033120.848",
+   "detector": false,
+   "seconds": 1.63275,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-033122.696",
+   "detector": false,
+   "seconds": 4.53975,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.48,
+    "opening": [
+     0.86,
+     0.06,
+     0.21,
+     0.12
+    ],
+    "ending": [
+     0.2,
+     -0.0,
+     0.7
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.48,
+    "opening": [
+     0.86,
+     0.06,
+     0.21,
+     0.12
+    ],
+    "ending": [
+     0.2,
+     -0.0,
+     0.7
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-033206.924",
+   "detector": false,
+   "seconds": 3.7035,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.53,
+    "opening": [
+     0.89,
+     -0.01,
+     0.23,
+     0.13
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.53,
+    "opening": [
+     0.89,
+     -0.01,
+     0.23,
+     0.13
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-033609.434",
+   "detector": false,
+   "seconds": 2.668125,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.39,
+    "opening": [
+     0.85,
+     -0.1,
+     0.19,
+     -0.01
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.39,
+    "opening": [
+     0.85,
+     -0.1,
+     0.19,
+     -0.01
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-033727.683",
+   "detector": true,
+   "seconds": 9.6768125,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.83,
+    "opening": [
+     0.92,
+     0.7,
+     0.71,
+     0.74
+    ],
+    "ending": [
+     0.71,
+     0.69,
+     0.87
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 131,
+    "opening_frame": 0,
+    "ending_frame": 260
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.83,
+    "opening": [
+     0.92,
+     0.7,
+     0.71,
+     0.74
+    ],
+    "ending": [
+     0.71,
+     0.69,
+     0.87
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 131,
+    "opening_frame": 0,
+    "ending_frame": 260,
+    "length_s": 9.68
+   }
+  },
+  {
+   "clip": "20261011-033737.903",
+   "detector": false,
+   "seconds": 2.4291875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.41,
+    "opening": [
+     0.87,
+     -0.14,
+     0.21,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.41,
+    "opening": [
+     0.87,
+     -0.14,
+     0.21,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-033750.280",
+   "detector": true,
+   "seconds": 9.159125,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.51,
+    "opening": [
+     null,
+     0.54,
+     0.66,
+     0.73
+    ],
+    "ending": [
+     0.7,
+     0.71,
+     0.77
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 106,
+    "opening_frame": -25,
+    "ending_frame": 234
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.51,
+    "opening": [
+     null,
+     0.54,
+     0.66,
+     0.73
+    ],
+    "ending": [
+     0.7,
+     0.71,
+     0.77
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 106,
+    "opening_frame": -25,
+    "ending_frame": 234,
+    "length_s": 9.16
+   }
+  },
+  {
+   "clip": "20261011-034335.365",
+   "detector": false,
+   "seconds": 3.0265,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.34,
+    "opening": [
+     0.64,
+     0.11,
+     0.32,
+     0.03
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.34,
+    "opening": [
+     0.64,
+     0.11,
+     0.32,
+     0.03
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-034732.704",
+   "detector": false,
+   "seconds": 1.354,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.0,
+    "opening": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-040156.311",
+   "detector": false,
+   "seconds": 4.460125,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.46,
+    "opening": [
+     0.86,
+     -0.12,
+     0.1,
+     0.12
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.46,
+    "opening": [
+     0.86,
+     -0.12,
+     0.1,
+     0.12
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-040213.871",
+   "detector": false,
+   "seconds": 7.765375,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.49,
+    "opening": [
+     0.86,
+     0.0,
+     0.06,
+     0.12
+    ],
+    "ending": [
+     0.1,
+     0.03,
+     0.72
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.49,
+    "opening": [
+     0.86,
+     0.0,
+     0.06,
+     0.12
+    ],
+    "ending": [
+     0.1,
+     0.03,
+     0.72
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-040218.426",
+   "detector": false,
+   "seconds": 2.269875,
+   "assess": {
+    "kind": null,
+    "method": null,
+    "score": 0.43,
+    "opening": [
+     0.81,
+     -0.11,
+     0.21,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   },
+   "after_length_and_rhythm": {
+    "kind": null,
+    "method": null,
+    "score": 0.43,
+    "opening": [
+     0.81,
+     -0.11,
+     0.21,
+     null
+    ],
+    "ending": [
+     null,
+     null,
+     null
+    ],
+    "milepost": null,
+    "number_frames": null,
+    "rest_frame": null,
+    "opening_frame": null
+   }
+  },
+  {
+   "clip": "20261011-152734.170",
+   "detector": true,
+   "seconds": 9.6768125,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.73,
+    "opening": [
+     0.89,
+     0.61,
+     0.43,
+     0.55
+    ],
+    "ending": [
+     0.59,
+     0.51,
+     0.83
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 132,
+    "opening_frame": 1,
+    "ending_frame": 260
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.73,
+    "opening": [
+     0.89,
+     0.61,
+     0.43,
+     0.55
+    ],
+    "ending": [
+     0.59,
+     0.51,
+     0.83
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 132,
+    "opening_frame": 1,
+    "ending_frame": 260,
+    "length_s": 9.68
+   }
+  },
+  {
+   "clip": "20261011-152753.422",
+   "detector": true,
+   "seconds": 9.716625,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.73,
+    "opening": [
+     0.89,
+     0.56,
+     0.45,
+     0.55
+    ],
+    "ending": [
+     0.56,
+     0.54,
+     0.83
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 133,
+    "opening_frame": 2,
+    "ending_frame": 261
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.73,
+    "opening": [
+     0.89,
+     0.56,
+     0.45,
+     0.55
+    ],
+    "ending": [
+     0.56,
+     0.54,
+     0.83
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 133,
+    "opening_frame": 2,
+    "ending_frame": 261,
+    "length_s": 9.72
+   }
+  },
+  {
+   "clip": "20261011-172438.838",
+   "detector": true,
+   "seconds": 9.716625,
+   "assess": {
+    "kind": "other",
+    "method": null,
+    "score": 0.76,
+    "opening": [
+     0.87,
+     0.67,
+     0.53,
+     0.62
+    ],
+    "ending": [
+     0.6,
+     0.29,
+     0.73
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 132,
+    "opening_frame": 1
+   },
+   "after_length_and_rhythm": {
+    "kind": "other",
+    "method": null,
+    "score": 0.76,
+    "opening": [
+     0.87,
+     0.67,
+     0.53,
+     0.62
+    ],
+    "ending": [
+     0.6,
+     0.29,
+     0.73
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 132,
+    "opening_frame": 1,
+    "length_s": 9.72,
+    "rhythm": 0.71
+   }
+  },
+  {
+   "clip": "20261011-172445.395",
+   "detector": true,
+   "seconds": 9.716625,
+   "assess": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.74,
+    "opening": [
+     0.88,
+     0.52,
+     0.52,
+     0.66
+    ],
+    "ending": [
+     0.62,
+     0.57,
+     0.83
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 133,
+    "opening_frame": 2,
+    "ending_frame": 262
+   },
+   "after_length_and_rhythm": {
+    "kind": "all_clear",
+    "method": "sound",
+    "score": 0.74,
+    "opening": [
+     0.88,
+     0.52,
+     0.52,
+     0.66
+    ],
+    "ending": [
+     0.62,
+     0.57,
+     0.83
+    ],
+    "milepost": "known",
+    "number_frames": null,
+    "rest_frame": 133,
+    "opening_frame": 2,
+    "ending_frame": 262,
+    "length_s": 9.72
+   }
+  }
+ ],
+ "milepost_from_text": {
+  "Milepost 475.8.": 475.8,
+  "4, 7, 5, .8.": 475.8,
+  "475.8.7.": 475.8,
+  "475.87.": 475.8,
+  "Four seven five point eight seven.": 475.8,
+  "four eight two point one": 482.1,
+  "milepost 12": 12.0,
+  "4, 7, 5, 14, 7.": null,
+  "": null,
+  "point five": null,
+  "no defects": null
+ },
+ "parse": {
+  "Norfolk Southern detector, milepost 476.2, track one, no defects, total axles 312, train speed 46.": {
+   "type": "defect_detector",
+   "railroad": "NS",
+   "milepost": 476.2,
+   "track": 1,
+   "axles": 312,
+   "speed_mph": 46,
+   "defects": false
+  },
+  "CSX detector mile post 102.4 track three, defect, temperature 71": {
+   "type": "defect_detector",
+   "railroad": "CSX",
+   "milepost": 102.4,
+   "track": 3,
+   "temperature_f": 71,
+   "defects": true
+  },
+  "Dispatcher to 21Q, clear signal at Greer, over": null,
+  "": null
+ },
+ "parse_untrusted": {
+  "Norfolk Southern, milepost 475.8, so defect, repeat, so defect.": {
+   "type": "defect_detector",
+   "railroad": "NS",
+   "milepost": 475.8
+  },
+  "NS detector milepost 1.0, defect, axle 112, south rail": {
+   "type": "defect_detector",
+   "milepost": 1.0
+  },
+  "no defects": null
+ },
+ "detector_object_example": {
+  "detector_id": "ns-475.8",
+  "railroad": "NS",
+  "milepost": 475.8,
+  "result": "no_defects",
+  "method": "sound",
+  "scores": {
+   "opening": 0.81,
+   "ending": 0.55,
+   "rhythm": null
+  },
+  "length_s": 9.2,
+  "all_clear_length_s": 9.2,
+  "repeat_of": null,
+  "heard_text": null
+ },
+ "validate_examples": {
+  "ok": []
+ }
+}

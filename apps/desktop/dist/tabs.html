@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RailSpotting</title>
+<link rel="stylesheet" href="tabs.css">
+</head>
+<body>
+<!-- The app's tab bar. The app catches its links: rsapp://tab/... switches the view, and the
+     https link opens in the browser. There is no IPC. -->
+<header class="bar">
+  <span class="brand">
+    <img class="light" src="lockup-light.svg" alt="RailSpotting" width="185" height="44">
+    <img class="dark" src="lockup-dark.svg" alt="RailSpotting" width="185" height="44">
+  </span>
+  <nav class="tabs" aria-label="Views">
+    <a href="rsapp://tab/receiver" data-tab="receiver" aria-current="page">Receiver</a>
+    <a href="rsapp://tab/map" data-tab="map">Live Map</a>
+  </nav>
+  <a class="popout" href="https://railspotting.com/" title="Open RailSpotting.com in your browser"
+     aria-label="Open RailSpotting.com in your browser">
+    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+      <path d="M11 3h6v6M17 3l-8 8M15 12v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4"
+            fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </a>
+</header>
+<script src="tabs.js"></script>
+</body>
+</html>

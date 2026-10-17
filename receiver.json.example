@@ -1,0 +1,24 @@
+{
+  "server_url": "https://api.railspotting.com",
+  "ca_file": null,
+  "label": null,
+  "state_dir": "state",
+  "log_level": "INFO",
+  "serial_port": "auto",
+  "baud": 57600,
+  "scanner_role": "auto",
+  "transcription": true,
+  "transcribe_other_calls": false,
+  "web": {"enabled": true, "bind": "0.0.0.0", "port": 8080},
+  "auto_eot_focus": {"enabled": true, "minutes": 30, "road_min_rssi": 420},
+  "sdr": {
+    "margin_db": 6.0,
+    "min_windows": 2,
+    "record_bursts": true,
+    "record_keep": 500,
+    "voice_clip_keep": 50,
+    "auto_assign": true,
+    "devices": []
+  },
+  "watch_clips": []
+}

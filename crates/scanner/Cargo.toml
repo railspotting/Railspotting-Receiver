@@ -1,0 +1,15 @@
+[package]
+name = "railspotting-scanner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+log = "0.4.34"
+railspotting-common = { version = "2.0.0", path = "../common" }
+regex = "1.13.1"
+serde_json = { version = "1.0.154", features = ["preserve_order", "float_roundtrip"] }
+serialport = { version = "4.10.1", default-features = false }
+uuid = { version = "1.26.1", features = ["v4"] }

@@ -1,0 +1,14 @@
+[package]
+name = "railspotting-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+log = "0.4.34"
+railspotting-common = { version = "2.0.0", path = "../common" }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde_json = { version = "1.0.154", features = ["float_roundtrip", "preserve_order"] }
+uuid = { version = "1.26.1", features = ["v4"] }

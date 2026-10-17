@@ -1,0 +1,36 @@
+[package]
+name = "railspotting-desktop"
+description = "RailSpotting receiver: the macOS menu bar app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "railspotting-desktop"
+path = "src/main.rs"
+
+[features]
+default = ["metal"]
+# Speech on the GPU through Metal (Apple Silicon).
+metal = ["railspotting-engine/metal"]
+
+# The app is macOS only. Elsewhere this crate builds an empty binary, so `cargo test --workspace`
+# on Linux never pulls in Tauri or a webview.
+[target.'cfg(target_os = "macos")'.dependencies]
+railspotting-common = { version = "2.0.0", path = "../../crates/common" }
+railspotting-engine = { version = "2.0.0", path = "../../crates/engine" }
+serde_json = "1.0.154"
+log = "0.4.34"
+# "unstable": several web views in one window (the tab bar, the dashboard and the Live Map)
+tauri = { version = "2.11.6", features = ["tray-icon", "image-png", "unstable"] }
+tauri-plugin-single-instance = "2.4.5"
+tauri-plugin-autostart = "2.5.1"
+# the Live Map's Here button: an answer to WebKit's location request (see src/here.rs)
+objc2 = "0.6.5"
+block2 = "0.6.2"
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }

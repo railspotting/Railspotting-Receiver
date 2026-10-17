@@ -1,0 +1,164 @@
+{
+ "iq_file": "fixtures/local/dsp/eot_noise_rise.cu8",
+ "format": "cu8 interleaved I/Q, sample = b/127.5 - (1+1j)",
+ "device": {
+  "serial": "SIMEOT01",
+  "role": "eot",
+  "sample_rate": 2400000.0,
+  "gain": 40.2,
+  "name": "UHF SDR"
+ },
+ "plan": {
+  "config_version": "fixture",
+  "heartbeat_interval_s": 60,
+  "radio_check_interval_s": 1800,
+  "poll_interval_s": 0.25,
+  "reference": {
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55
+  },
+  "channels": [
+   {
+    "ch": 1,
+    "freq": 160.905,
+    "railroad": "NS",
+    "label": "Greenville Dist. Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 2,
+    "freq": 160.245,
+    "railroad": "NS",
+    "label": "Greenville Dist. Dispatcher",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 3,
+    "freq": 161.19,
+    "railroad": "NS",
+    "label": "Yard",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 4,
+    "freq": 161.25,
+    "railroad": "NS",
+    "label": "Yard",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 5,
+    "freq": 160.95,
+    "railroad": "NS",
+    "label": "Charlotte Dist. Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 6,
+    "freq": 161.31,
+    "railroad": "NS",
+    "label": "Charlotte Dist. Dispatcher",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 7,
+    "freq": 161.1,
+    "railroad": "CSX",
+    "label": "Belton Sub Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 8,
+    "freq": 161.37,
+    "railroad": "CSX",
+    "label": "Belton Sub Dispatcher (AP)",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 9,
+    "freq": 457.9375,
+    "railroad": null,
+    "label": "EOT (end of train)",
+    "kind": "telemetry",
+    "proximity": true
+   },
+   {
+    "ch": 10,
+    "freq": 452.9375,
+    "railroad": null,
+    "label": "HOT (head of train)",
+    "kind": "telemetry",
+    "proximity": true
+   }
+  ],
+  "upload": {
+   "max_batch": 200,
+   "flush_interval_s": 2
+  }
+ },
+ "sdr_settings": {
+  "record_keep": 500,
+  "record_bursts": false
+ },
+ "block_samples": 98304,
+ "rate": 2400000.0,
+ "blocks": 147,
+ "block_ts": "t0 = 0; block k covers [k*B/rate, (k+1)*B/rate) and is processed with ts = (k+1)*B/rate",
+ "center_mhz": 458.1385,
+ "window_mhz": [
+  457.0345,
+  459.2425
+ ],
+ "events": [
+  {
+   "event_id": "f0dc11cd-be4b-4fdf-9a5f-972211575b33",
+   "state": "open",
+   "start_ts": 1.99,
+   "end_ts": null,
+   "freq": 457.9375,
+   "ch": 9,
+   "kind": "telemetry",
+   "peak_rssi": 240,
+   "avg_rssi": 238,
+   "samples": 2
+  },
+  {
+   "event_id": "f0dc11cd-be4b-4fdf-9a5f-972211575b33",
+   "state": "closed",
+   "start_ts": 1.99,
+   "end_ts": 5.02,
+   "freq": 457.9375,
+   "ch": 9,
+   "kind": "telemetry",
+   "peak_rssi": 241,
+   "avg_rssi": 240,
+   "samples": 148,
+   "truncated": true
+  }
+ ],
+ "final": {
+  "channels": [
+   {
+    "freq": 457.9375,
+    "ch": 9,
+    "label": "EOT (end of train)",
+    "kind": "telemetry",
+    "floor_db": 27.3,
+    "receiving": false
+   }
+  ],
+  "clipping": 0.0,
+  "blocks": 147,
+  "reference": null
+ },
+ "reference_samples": [],
+ "last_eot": null
+}

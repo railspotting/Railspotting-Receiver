@@ -1,0 +1,25 @@
+[Unit]
+Description=RailSpotting receiver
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=railspotting
+Group=railspotting
+SupplementaryGroups=dialout plugdev
+WorkingDirectory=/opt/railspotting-receiver
+ExecStart=/opt/railspotting-receiver/bin/railspotting-receiver --config /opt/railspotting-receiver/receiver.json run
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/railspotting-receiver
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

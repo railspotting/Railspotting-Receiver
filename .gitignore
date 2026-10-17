@@ -1,0 +1,28 @@
+# build output
+/target/
+
+# a receiver's own files when run from a checkout: settings, its private key, state, models
+/receiver.json
+/credentials.json
+/state/
+/models/
+*.bin
+*.bin.part
+
+# private test inputs (real recordings, live templates); tests skip when missing
+/fixtures/local/
+
+# editors and OS
+*.swp
+*~
+.DS_Store
+.idea/
+.vscode/
+
+# local environment
+.env
+.env.*
+
+# per-machine cargo settings (this server limits build jobs)
+/.cargo/config.toml
+apps/desktop/gen/

@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RailSpotting Receiver</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f4f2;
+  --surface: #fcfcfb;
+  --border: #e2e1dc;
+  --text: #0b0b0b;
+  --text-2: #52514e;
+  --muted: #7a7974;
+  --grid: #e9e8e4;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --accent: #2a78d6;
+  --accent-text: #ffffff;
+  --row-hover: #f0efec;
+  --wordmark: #1d1f22;
+  --logo-edge: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110;
+    --surface: #1a1a19;
+    --border: #2e2e2b;
+    --text: #ffffff;
+    --text-2: #c3c2b7;
+    --muted: #8f8e86;
+    --grid: #2a2a27;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --accent: #3987e5;
+    --row-hover: #232321;
+    --wordmark: #f1efe9;
+    --logo-edge: inline;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110;
+  --surface: #1a1a19;
+  --border: #2e2e2b;
+  --text: #ffffff;
+  --text-2: #c3c2b7;
+  --muted: #8f8e86;
+  --grid: #2a2a27;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --accent: #3987e5;
+  --row-hover: #232321;
+  --wordmark: #f1efe9;
+  --logo-edge: inline;
+}
+* { box-sizing: border-box; }
+/* classes that set display (such as .tag) must not undo the hidden attribute */
+[hidden] { display: none !important; }
+/* the logo (lockup-auto.svg inline, colored by the theme) and the pop-out to railspotting.com */
+.brand { height: 36px; width: auto; display: block; }
+.brand .wm { fill: var(--wordmark); }
+.brand .edge { display: var(--logo-edge); }
+.site-link { margin-left: auto; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 7px;
+  color: var(--text-2); }
+.site-link:hover { background: var(--row-hover); color: var(--text); }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 16px; }
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 12px; }
+.sub { color: var(--text-2); }
+.muted { color: var(--muted); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.banner { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--critical);
+  color: var(--text); background: color-mix(in srgb, var(--critical) 12%, var(--surface)); display: none; }
+.grid { display: grid; gap: 16px; }
+.tiles { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-bottom: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; min-width: 0; }
+.tile .label { color: var(--text-2); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.tile .big { font-size: 26px; font-weight: 600; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; }
+.kv dt { color: var(--text-2); }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.status::before { content: attr(data-icon); display: inline-grid; place-items: center; width: 18px; height: 18px;
+  border-radius: 50%; font-size: 11px; color: #fff; background: var(--dot, var(--muted)); }
+.s-good { --dot: var(--good); }
+.s-warning { --dot: var(--warning); }
+.s-serious { --dot: var(--serious); }
+.s-critical { --dot: var(--critical); }
+.s-none { --dot: var(--muted); }
+.pairing { font-size: 30px; letter-spacing: .12em; font-weight: 700; margin: 6px 0; }
+button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); padding: 5px 12px; }
+button:hover { background: var(--row-hover); }
+button[disabled] { opacity: .6; cursor: default; }
+a.button { display: inline-block; text-decoration: none; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); padding: 5px 12px; }
+a.button:hover { background: var(--row-hover); }
+.rec-actions { white-space: nowrap; display: flex; gap: 6px; }
+#rec-player { width: 100%; margin: 4px 0 10px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 4px 10px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.row h2 { margin: 0; }
+.charts { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: 200px; overflow: visible; }
+.chart .title { font-weight: 600; margin-bottom: 2px; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); margin-bottom: 6px; min-height: 18px; }
+.legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 5px; border-radius: 1px; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none;
+  white-space: nowrap; z-index: 2; }
+.axis text { fill: var(--muted); font-size: 11px; }
+.axis line, .gridline { stroke: var(--grid); }
+.empty { fill: var(--muted); font-size: 12px; }
+.sdrs { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--text-2); font-weight: 600; font-size: 12px; white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tbody tr:hover { background: var(--row-hover); }
+.rx { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.rx::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+.counters { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-2); margin: 8px 0 10px; }
+.counters b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.latest { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.quote { font-style: italic; overflow-wrap: anywhere; }
+.section { margin-top: 16px; }
+select { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); }
+.tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-2); }
+details summary { cursor: pointer; color: var(--text-2); font-size: 12px; margin-top: 8px; }
+footer { margin: 24px 0 8px; color: var(--muted); font-size: 12px; }
+/* a box inside a card: one per dongle, and the latest EOT packet and transcript */
+.panel { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.panel.changed { border-color: var(--dot, var(--accent)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--dot, var(--accent)) 35%, transparent); }
+.panel .row { margin-bottom: 8px; }
+.panel .label { color: var(--text-2); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.notes { margin-bottom: 12px; font-size: 13px; }
+details.fold summary { margin-top: 10px; }
+details.fold[open] summary { margin-bottom: 6px; }
+.tile details.fold table { font-size: 12px; }
+.tile details.fold td, .tile details.fold th { padding: 4px 6px; }
+.form { display: grid; grid-template-columns: minmax(140px, auto) 1fr; gap: 10px 16px; align-items: center; }
+.form label { color: var(--text-2); font-size: 13px; }
+.form .hint, .hint { color: var(--muted); font-size: 12px; }
+input[type="text"], input[type="number"] { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); min-width: 0; }
+input[type="text"] { width: 100%; max-width: 360px; }
+input[type="number"] { width: 90px; }
+textarea { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; width: 100%; min-height: 220px;
+  padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.prof-view { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 10px 0; }
+.prof-view dt { color: var(--muted); font-size: 12px; padding-top: 2px; }
+.prof-view dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.prof-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.result-box { border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-top: 10px; display: grid; gap: 6px; }
+.devs td { vertical-align: middle; }
+.devs input[type="text"] { max-width: 140px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.primary:hover { background: var(--accent); filter: brightness(1.08); }
+.msg-ok { color: var(--good); }
+.msg-err { color: var(--critical); }
+@media (max-width: 520px) {
+  .form { grid-template-columns: 1fr; }
+  .charts, .sdrs { grid-template-columns: 1fr; }
+  .chart svg { height: 170px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="brand" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 403 96" width="151" height="36" role="img" aria-label="RailSpotting"><title>RailSpotting</title><g transform="translate(16 16) scale(2)"><defs><clipPath id="tlauto"><rect width="32" height="32" rx="7"/></clipPath></defs><rect width="32" height="32" rx="7" fill="#16191c"/><path d="M7.5 12.0V20.0M11.75 8.5V23.5M16 5.5V26.5M20.25 10.0V22.0M24.5 7.5V24.5" stroke="#e0a100" stroke-width="2.8" stroke-linecap="round"/><g clip-path="url(#tlauto)"><path d="M0 13.4H32M0 18.6H32" stroke="#f1efe9" stroke-width="1.5"/></g><rect class="edge" x="0.2" y="0.2" width="31.6" height="31.6" rx="6.8" fill="none" stroke="#2f353b" stroke-width="0.4"/></g><path class="wm" d="M104.31946308724832 60.8H109.55973154362417V51.65959731543624H113.68322147651007L118.5626845637584 60.8H124.36993288590604L118.9234899328859 50.81771812080537C121.84429530201342 49.5634899328859 123.4593288590604 47.03785234899328 123.4593288590604 43.53288590604026C123.4593288590604 38.49879194630872 120.1261744966443 35.199999999999996 114.30174496644295 35.199999999999996H104.31946308724832ZM109.55973154362417 47.415838926174494V39.5296644295302H113.32241610738255C116.53530201342282 39.5296644295302 118.04724832214765 40.955704697986576 118.04724832214765 43.53288590604026C118.04724832214765 46.092885906040266 116.53530201342282 47.415838926174494 113.33959731543624 47.415838926174494ZM128.06183087248323 60.8H133.85189798657717L135.7590120805369 54.855302013422815H144.8478711409396L146.8237100671141 60.8H152.64813959731543L143.6795489932886 35.199999999999996H136.8070657718121ZM137.06478389261744 50.7489932885906 137.80357583892618 48.44671140939597C138.5767302013423 45.86953020134228 139.3327033557047 42.828456375838925 140.19176375838927 39.306308724832206C141.08518657718122 42.79409395973154 141.8927033557047 45.8179865771812 142.71740134228187 48.44671140939597L143.49055570469798 50.7489932885906ZM163.16097718120807 35.199999999999996H157.92070872483222V60.8H163.16097718120807ZM169.9111302013423 60.8H186.19891543624163V56.4531543624161H175.15139865771815V35.199999999999996H169.9111302013423ZM201.29913557046982 61.17798657718121C207.51873288590605 61.17798657718121 211.1783302013423 58.17127516778523 211.1783302013423 53.515167785234894C211.1783302013423 49.219865771812074 207.8451758389262 47.02067114093959 203.5326926174497 46.024161073825496L201.21322953020137 45.45718120805368C199.04839731543626 44.94174496644295 197.12410201342283 44.13422818791946 197.12410201342283 42.22711409395973C197.12410201342283 40.5089932885906 198.63604832214767 39.27194630872483 201.31631677852351 39.27194630872483C203.9450416107383 39.27194630872483 205.57725637583894 40.457449664429525 205.76624966442955 42.50201342281879H210.8347060402685C210.74880000000002 38.00053691275167 207.03765906040272 34.85637583892617 201.36786040268458 34.85637583892617C195.80114899328862 34.85637583892617 191.74638389261747 37.9489932885906 191.74638389261747 42.570738255033554C191.74638389261747 46.29906040268456 194.34074630872485 48.48107382550335 198.67041073825504 49.529127516778516L201.48812885906042 50.23355704697986C204.2714845637584 50.920805369127514 205.9036993288591 51.728322147651 205.9036993288591 53.48080536912751C205.9036993288591 55.42228187919463 204.04812885906043 56.74523489932886 201.24759194630875 56.74523489932886C198.4126926174497 56.74523489932886 196.33376644295305 55.45664429530201 196.16195436241614 52.862281879194626H191.0591355704698C191.21376644295304 58.308724832214764 195.14826308724835 61.17798657718121 201.29913557046982 61.17798657718121ZM217.06942281879196 60.8H222.3096912751678V52.432751677852345H226.93143624161075C232.82459060402687 52.432751677852345 236.20928859060405 48.91060402684563 236.20928859060405 43.842147651006705C236.20928859060405 38.80805369127516 232.87613422818794 35.199999999999996 227.0517046979866 35.199999999999996H217.06942281879196ZM222.3096912751678 48.206174496644294V39.5296644295302H226.07237583892618C229.28526174496645 39.5296644295302 230.7972080536913 41.26496644295301 230.7972080536913 43.842147651006705C230.7972080536913 46.4193288590604 229.28526174496645 48.206174496644294 226.08955704697988 48.206174496644294ZM253.21662281879196 61.143624161073824C260.0032 61.143624161073824 265.1575624161074 56.35006711409396 265.1575624161074 48.017181208053685C265.1575624161074 39.64993288590604 260.0032 34.85637583892617 253.21662281879196 34.85637583892617C246.4300456375839 34.85637583892617 241.27568322147653 39.64993288590604 241.27568322147653 48.017181208053685C241.27568322147653 56.33288590604027 246.4300456375839 61.143624161073824 253.21662281879196 61.143624161073824ZM253.21662281879196 56.487516778523485C249.24776375838928 56.487516778523485 246.6018577181208 53.4979865771812 246.6018577181208 48.017181208053685C246.6018577181208 42.51919463087248 249.24776375838928 39.5124832214765 253.21662281879196 39.5124832214765C257.18548187919464 39.5124832214765 259.8313879194631 42.50201342281879 259.8313879194631 48.017181208053685C259.8313879194631 53.4979865771812 257.18548187919464 56.487516778523485 253.21662281879196 56.487516778523485ZM270.1724134228188 39.546845637583885H278.007044295302V60.8H283.26449395973157V39.546845637583885H291.08194362416106V35.199999999999996H270.1724134228188ZM295.7703516778524 39.546845637583885H303.6049825503356V60.8H308.86243221476514V39.546845637583885H316.6798818791946V35.199999999999996H295.7703516778524ZM327.6394308724832 35.199999999999996H322.3991624161074V60.8H327.6394308724832ZM334.38958389261745 60.8H339.75012080536914V49.03087248322147C339.75012080536914 47.51892617449664 339.5954899328859 44.76993288590604 339.4064966442953 41.67731543624161C340.9871677852349 44.873020134228184 341.9321342281879 46.745771812080534 343.3581744966443 49.048053691275165L350.7117315436242 60.8H356.5705234899329V35.199999999999996H351.2099865771812V47.48456375838926C351.2099865771812 49.168322147651004 351.34743624161075 51.91731543624161 351.53642953020136 54.425771812080534C350.41965100671143 51.762684563758384 349.33723489932885 49.82120805369127 348.32354362416106 48.15463087248322L340.2311946308725 35.199999999999996H334.38958389261745ZM374.6602738255034 61.143624161073824C381.08604563758394 61.143624161073824 385.70779060402685 57.07167785234899 385.70779060402685 50.3538255033557V47.15812080536912H375.0554416107383V51.1441610738255H380.62215302013425C380.5362469798658 54.425771812080534 378.3370523489933 56.487516778523485 374.69463624161074 56.487516778523485C370.5883275167785 56.487516778523485 367.9424214765101 53.41208053691275 367.9424214765101 47.9828187919463C367.9424214765101 42.55355704697986 370.674233557047 39.5124832214765 374.625911409396 39.5124832214765C377.47799194630875 39.5124832214765 379.4022872483222 41.007248322147646 380.1238979865772 43.44697986577181H385.4500724832215C384.72846174496647 38.395704697986574 380.2957100671141 34.85637583892617 374.5400053691275 34.85637583892617C367.80497181208057 34.85637583892617 362.61624697986576 39.735838926174495 362.61624697986576 48.03436241610738C362.61624697986576 56.126711409395966 367.4785288590604 61.143624161073824 374.6602738255034 61.143624161073824Z"/></svg>
+    <h1>Receiver</h1>
+    <span class="sub mono" id="device">...</span>
+    <span class="tag" id="sim" hidden>simulation</span>
+    <span class="muted" id="updated"></span>
+    <a class="site-link" href="https://railspotting.com/" target="_blank" rel="noopener"
+       title="Open RailSpotting.com" aria-label="Open RailSpotting.com">
+      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+        <path d="M11 3h6v6M17 3l-8 8M15 12v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4"
+              fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="grid tiles">
+    <div class="card tile" id="reg-tile">
+      <div class="label">Account link</div>
+      <div class="big"><span class="status s-none" data-icon="?" id="reg-state">...</span></div>
+      <div id="reg-detail" class="sub"></div>
+    </div>
+    <div class="card tile">
+      <div class="label">Reference station</div>
+      <div class="big" id="ref-snr">-</div>
+      <div class="sub" id="ref-name"></div>
+    </div>
+    <div class="card tile">
+      <div class="label">Headend</div>
+      <dl class="kv" id="headend"></dl>
+      <details class="fold" id="api-wrap">
+        <summary>Recent requests</summary>
+        <div class="scroll"><table id="api"></table></div>
+      </details>
+    </div>
+    <div class="card tile">
+      <div class="label">Scanner</div>
+      <dl class="kv" id="scanner"></dl>
+    </div>
+  </div>
+
+  <div class="card" id="dongles" style="margin-bottom:16px">
+    <div class="row"><h2>Dongles</h2><span class="muted" style="font-size:12px">Unplug one to see which it is: its state changes within a few seconds.</span></div>
+    <div class="notes" id="sdr-notes" hidden></div>
+    <div class="grid sdrs" id="sdrs"></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <h2>Signal</h2>
+      <div class="seg" id="range" role="group" aria-label="Time range">
+        <button type="button" data-h="1">1 h</button>
+        <button type="button" data-h="6">6 h</button>
+        <button type="button" data-h="24" aria-pressed="true">24 h</button>
+        <button type="button" data-h="168">7 d</button>
+      </div>
+    </div>
+    <div class="grid charts">
+      <div class="chart" id="chart-ref">
+        <div class="title">Reference SNR (dB)</div>
+        <div class="legend"><span class="muted">signal above the noise, measured each minute</span></div>
+        <svg role="img" aria-label="Reference station SNR over time"></svg>
+        <div class="tip"></div>
+      </div>
+      <div class="chart" id="chart-floor">
+        <div class="title">Noise floor (dB, median of channels)</div>
+        <div class="legend" id="floor-legend"></div>
+        <svg role="img" aria-label="Noise floor per dongle over time"></svg>
+        <div class="tip"></div>
+      </div>
+    </div>
+    <details id="signal-table-wrap">
+      <summary>Show readings as a table</summary>
+      <div class="scroll"><table id="signal-table"></table></div>
+    </details>
+  </div>
+
+  <div class="card section" id="activity">
+    <div class="row">
+      <h2>Activity</h2>
+      <div class="seg" id="act-tabs" role="group" aria-label="Show">
+        <button type="button" data-tab="events" aria-pressed="true">Events</button>
+        <button type="button" data-tab="recordings" aria-pressed="false">Recordings</button>
+      </div>
+    </div>
+    <div class="grid latest">
+      <div class="panel"><div class="label">Last EOT packet</div><div id="last-eot" class="sub">none yet</div></div>
+      <div class="panel"><div class="label">Last transcript</div><div id="last-tr" class="sub">none yet</div></div>
+    </div>
+    <div id="tab-events">
+      <div class="row">
+        <span class="hint">Events heard, newest first</span>
+        <label class="sub">Show
+          <select id="kind">
+            <option value="">all events</option>
+            <option value="voice">voice</option>
+            <option value="telemetry">telemetry (EOT/HOT)</option>
+          </select>
+        </label>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th>Time</th><th>Channel</th><th class="num">MHz</th><th>Kind</th>
+            <th class="num">Length</th><th class="num">Peak</th><th>Details</th>
+          </tr></thead>
+          <tbody id="events"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px"><button type="button" id="more">Show more</button>
+        <span class="muted" id="events-note"></span></div>
+    </div>
+    <div id="tab-recordings" hidden>
+      <div class="row">
+        <span class="hint">Saved recordings, newest first</span>
+        <label class="sub">Show
+          <select id="rec-source">
+            <option value="detector,candidate" selected>detector announcements</option>
+            <option value="candidate">detectors without a template yet</option>
+            <option value="">all recordings</option>
+            <option value="watched">watched channels</option>
+            <option value="voice">other voice calls</option>
+          </select>
+        </label>
+      </div>
+      <audio id="rec-player" controls preload="none" hidden></audio>
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th>Time</th><th>Source</th><th class="num">MHz</th><th class="num">Length</th><th>Heard</th><th></th>
+          </tr></thead>
+          <tbody id="rec-rows"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px"><button type="button" id="rec-more" hidden>Show more</button>
+        <span class="muted" id="rec-note"></span></div>
+    </div>
+  </div>
+
+  <div class="card section" id="profiles" style="margin-top:16px">
+    <div class="row">
+      <h2>Detector profiles</h2>
+      <span class="hint" id="prof-mode">How detector announcements on each channel are read.</span>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Channel</th><th class="num">MHz</th><th>Railroad</th><th>Detectors heard here</th><th>Profile</th></tr></thead>
+        <tbody id="prof-dets"></tbody>
+      </table>
+    </div>
+    <div class="prof-tools" style="margin-top:14px">
+      <label class="sub" for="prof-pick">View profile</label>
+      <select id="prof-pick"></select>
+    </div>
+    <dl class="prof-view" id="prof-view"></dl>
+
+    <div id="prof-test" hidden>
+      <h2 style="margin-top:14px">Test transcription</h2>
+      <div class="prof-tools">
+        <label class="sub" for="test-rec">Recording</label>
+        <select id="test-rec" style="max-width:100%"></select>
+        <label class="sub" for="test-prof">Profile</label>
+        <select id="test-prof"></select>
+        <button type="button" id="test-run">Test</button>
+      </div>
+      <div class="hint">Runs speech recognition on this receiver; it takes about half a minute and does not change anything.</div>
+      <div id="test-out"></div>
+    </div>
+  </div>
+
+  <div class="card" id="settings" style="margin-top:16px" hidden>
+    <div class="row"><h2>Settings</h2><span class="hint">Saving restarts the receiver; it takes a few seconds.</span></div>
+    <form id="settings-form" autocomplete="off">
+      <div class="form">
+        <label for="set-label">Name on the headend</label>
+        <input type="text" id="set-label" maxlength="64" placeholder="none">
+        <label for="set-other">Transcribe other calls</label>
+        <div><input type="checkbox" id="set-other"> <span class="hint">Calls that are not detector announcements. Uses more CPU.</span></div>
+        <label for="set-watch">Keep every recording on</label>
+        <div><input type="text" id="set-watch" placeholder="e.g. 160.950, 161.190">
+          <div class="hint">Channels in MHz, separated by commas. For detectors that have no template yet.</div></div>
+      </div>
+      <h2 style="margin-top:18px">Dongle roles</h2>
+      <div class="hint" style="margin-bottom:6px">With no rows, each role takes a connected dongle by itself. Serials of connected dongles: <span id="set-seen" class="mono">none</span></div>
+      <div class="scroll"><table class="devs"><thead><tr><th>Role</th><th>Serial</th><th>Gain (dB)</th><th></th></tr></thead>
+        <tbody id="set-devs"></tbody></table></div>
+      <div class="actions"><button type="button" id="set-add">Add a dongle</button></div>
+      <div class="actions">
+        <button type="submit" class="primary" id="set-save">Save</button>
+        <button type="button" id="set-reset">Undo changes</button>
+        <button type="button" id="set-link" hidden>Start linking again</button>
+        <span id="set-msg" role="status"></span>
+      </div>
+    </form>
+  </div>
+
+  <footer><span id="footer-mode">Read only.</span> Updates every 2 seconds; recordings every minute. Dongle serial numbers are shown so you can tell the dongles apart; they are never sent to the headend.</footer>
+</div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const num = (v, d = 1) => (v == null || isNaN(v)) ? "-" : Number(v).toFixed(d);
+const signed = (v, d = 0) => (v == null || isNaN(v)) ? "-" : (v >= 0 ? "+" : "") + Number(v).toFixed(d);
+
+let hours = 24, now = Date.now() / 1000, status = null;
+
+// The desktop app passes a per-run token, as window.RAILSPOTTING_TOKEN or in the address after
+// "#token=". Without it the page is read only. The fragment is never sent to the server, and is
+// taken out of the address bar so it isn't copied along with the link.
+const TOKEN = (() => {
+  const m = /[#&]token=([0-9a-f]+)/.exec(location.hash);
+  if (m) history.replaceState(null, "", location.pathname + location.search);
+  return window.RAILSPOTTING_TOKEN || (m && m[1]) || null;
+})();
+const EVENTS_PAGE = 10;
+let events = [], eventsDone = false, kindFilter = "", eventsShown = EVENTS_PAGE;
+
+function ago(ts) {
+  if (!ts) return "never";
+  const s = Math.max(0, now - ts);
+  if (s < 90) return Math.round(s) + " s ago";
+  if (s < 5400) return Math.round(s / 60) + " min ago";
+  if (s < 172800) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " d ago";
+}
+function clock(ts) {
+  const d = new Date(ts * 1000), today = new Date();
+  const t = d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+  return d.toDateString() === today.toDateString() ? t : d.toLocaleDateString([], {month: "short", day: "numeric"}) + " " + t;
+}
+async function getJSON(url, opts) {
+  const r = await fetch(url, Object.assign({cache: "no-store"}, opts));
+  if (!r.ok) throw new Error(r.status + " " + r.statusText);
+  return r.json();
+}
+
+// registration ------------------------------------------------------------------------------
+
+const REG = {
+  approved: ["good", "\u2713", "Linked", "Signed uploads are going to the headend."],
+  checking: ["warning", "!", "Checking", "Checking the stored device ID with the headend. Events are queued locally."],
+  waiting: ["warning", "!", "Waiting for the owner", "Open the address below, sign in, and enter this code (or scan the QR code):"],
+  linking: ["serious", "?", "Not linked", "Asking the headend for a link code. Events are queued locally."],
+  denied: ["critical", "\u00d7", "Link denied", "The owner denied this receiver. On the receiver, run railspotting-receiver link to start again."],
+};
+
+let shownCode = null;
+
+function renderReg(st) {
+  const key = REG[st.registration] ? st.registration : "linking";
+  const [lvl, icon, label, text] = REG[key];
+  const el = $("#reg-state");
+  el.className = "status s-" + lvl;
+  el.dataset.icon = icon;
+  el.textContent = label;
+  const lk = st.link;
+  const code = key === "waiting" && lk ? lk.user_code : null;
+  const expiry = () => `Expires in ${Math.ceil(Math.max(0, lk.expires_at - now) / 60)} min; a new code follows automatically.`;
+  if (code && code === shownCode) {
+    $("#link-expires").textContent = expiry();
+    return;
+  }
+  shownCode = code;
+  let html = esc(text);
+  if (code) {
+    html += `<div class="pairing mono">${esc(code)}</div>
+      <div><a href="${esc(lk.verification_uri_complete || lk.verification_uri)}" target="_blank" rel="noopener">${esc(lk.verification_uri)}</a></div>
+      <img src="/link-qr.svg?c=${encodeURIComponent(code)}" alt="QR code for the link address" width="148" height="148"
+        style="margin-top:8px;border-radius:6px;background:#fff">
+      <div class="muted" id="link-expires" style="margin-top:4px">${esc(expiry())}</div>`;
+  } else if (key !== "approved") {
+    html += `<div class="muted" style="margin-top:4px">${esc(st.server_url)}</div>`;
+  }
+  $("#reg-detail").innerHTML = html;
+}
+
+// tiles -------------------------------------------------------------------------------------
+
+function kv(el, rows) {
+  el.innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("");
+}
+
+function renderTiles(st) {
+  $("#device").textContent = `${st.device_id || "not linked yet"} · v${st.agent_version}`;
+  $("#sim").hidden = !st.simulate;
+  renderReg(st);
+
+  const ref = (st.sdrs || []).map((s) => s.reference).find((r) => r);
+  $("#ref-snr").textContent = ref ? signed(ref.snr_db) + " dB" : "-";
+  $("#ref-name").textContent = ref ? `${ref.name}, ${num(ref.freq, 3)} MHz, ${ago(ref.ts)}` : "not measured";
+
+  const hb = st.last_heartbeat;
+  const off = st.clock_offset_s;
+  kv($("#headend"), [
+    ["Channel plan", st.config_version ? "version " + esc(st.config_version) : "built-in"],
+    ["Heartbeat", esc(hb ? ago(hb.ts || hb.server_time || null) : "none yet")],
+    ["Outbox", `${esc(st.outbox_depth)} queued` + (st.dropped_events ? `, <b>${esc(st.dropped_events)} dropped</b>` : "")],
+    ["Accepted", st.uploaded ? `${esc(st.uploaded.events)} events, ${esc(st.uploaded.transcripts)} transcripts, ${esc(st.uploaded.telemetry)} EOT (since start)` : "-"],
+    ["Clock", (off == null ? "unknown" : signed(off, 1) + " s") + (st.clock_synced === false ? " <b>not NTP synced</b>" : "")],
+  ]);
+
+  const sc = st.scanner || {};
+  const connected = sc.connected ?? sc.state === "connected";
+  kv($("#scanner"), [
+    ["State", esc(sc.state || (connected ? "connected" : "not connected"))],
+    ["Model", esc([sc.model, sc.firmware].filter(Boolean).join(" ") || "-")],
+    ["Role", st.scanner_role ? esc(st.scanner_role === "off" ? "off (not used)" : st.scanner_role) +
+      ({website: " (chosen on the website)", "receiver.json": " (set in receiver.json)"}[st.scanner_job_from] || " (automatic)") : "-"],
+    ["On the website", st.scanner_id ? `<span class="mono">${esc(st.scanner_id)}</span>` : "-"],
+    ["Focus", esc(st.focus ? (st.focus.reason || st.focus.mode || JSON.stringify(st.focus)) : "none")],
+  ]);
+}
+
+// dongles -----------------------------------------------------------------------------------
+
+function dur(sec) {
+  sec = Math.max(0, Math.round(sec));
+  if (sec < 90) return sec + " s";
+  if (sec < 5400) return Math.round(sec / 60) + " min";
+  if (sec < 172800) return Math.round(sec / 3600) + " h";
+  return Math.round(sec / 86400) + " d";
+}
+
+function dongleState(s) {
+  if (!s.serial) return ["warning", "!", "No dongle yet"];
+  if (s.plugged_in === false) return ["critical", "\u00d7", "Unplugged"];
+  if (s.connected && s.corrupt) return ["critical", "\u00d7", "Sending corrupt data"];
+  if (s.connected) return ["good", "\u2713", "Connected"];
+  if (s.plugged_in) return ["serious", "!", "Plugged in, not streaming"];
+  return ["critical", "\u00d7", "Not connected"];
+}
+
+// which channel lists are open, kept across the 2 s refresh
+const openChannels = new Set();
+
+function renderSdrs(st) {
+  for (const d of document.querySelectorAll("#sdrs details[data-key]")) {
+    if (d.open) openChannels.add(d.dataset.key); else openChannels.delete(d.dataset.key);
+  }
+  const html = (st.sdrs || []).map((s) => {
+    // the optional third dongle (HOT) on Automatic: a line, not an empty box
+    if (!s.serial && s.role === "hot" && s.assigned !== "receiver.json") {
+      return `<div class="muted" style="margin:4px 0">${esc(s.name)}: optional. A third dongle plugged in listens for HOT.</div>`;
+    }
+    const [lvl, icon, label] = dongleState(s);
+    const recent = s.serial && now - s.since < 30;
+    const state = `<span class="status s-${lvl}" data-icon="${icon}">${esc(label)}</span>`;
+    const how = {automatic: " (assigned automatically)", website: " (chosen on the website)"}[s.assigned] || " (set in receiver.json)";
+    const dongle = s.serial ? `serial <span class="mono">${esc(s.serial)}</span>${how}, for ${dur(now - s.since)}`
+      : "none yet: plug one in and it is assigned within 10 s";
+    const chans = s.channels || [];
+    const rx = chans.filter((c) => c.receiving).length;
+    const win = s.window_mhz ? `${num(s.window_mhz[0], 3)} to ${num(s.window_mhz[1], 3)} MHz` : "-";
+    const rows = (s.channels || []).map((c) => `<tr>
+        <td>${esc(c.ch ?? "")}</td><td>${esc(c.label || "")}</td>
+        <td class="num mono">${num(c.freq, 4)}</td>
+        <td class="num">${num(c.floor_db)}</td>
+        <td>${c.receiving ? '<span class="rx">receiving</span>' : '<span class="muted">quiet</span>'}</td></tr>`).join("");
+    const unc = (s.uncovered || []).length ? `<div class="sub" style="margin-top:8px">Outside the window: channel ${s.uncovered.map(esc).join(", ")}</div>` : "";
+    return `<div class="panel s-${lvl}${recent ? " changed" : ""}">
+      <div class="row"><h2>${esc(s.name)}</h2>${state}</div>
+      ${s.connected && s.corrupt ? `<div class="notes"><b>The dongle is stuck sending random data. Unplug it for 10 s and plug it back in.</b></div>` : ""}
+      <dl class="kv">
+        <dt>Dongle</dt><dd>${dongle}</dd>
+        ${s.dongle_id ? `<dt>On the website</dt><dd class="mono">${esc(s.dongle_id)}</dd>` : ""}
+        ${s.usb_port ? `<dt>USB port</dt><dd class="mono">${esc(s.usb_port)}</dd>` : ""}
+        <dt>Antenna</dt><dd><b>${esc(s.antenna || "")}</b></dd>
+        <dt>Center</dt><dd>${num(s.center_mhz, 4)} MHz, window ${win}</dd>
+        <dt>Sample rate</dt><dd>${num((s.rate || 0) / 1e6, 2)} MS/s, gain ${num(s.gain)} dB</dd>
+        ${s.reference ? `<dt>Reference</dt><dd>${signed(s.reference.snr_db)} dB SNR</dd>` : ""}
+        ${s.last_error ? `<dt>Last error</dt><dd>${esc(s.last_error)}</dd>` : ""}
+      </dl>
+      <div class="counters">
+        <span>clipping <b>${num((s.clipping || 0) * 100, 2)}%</b></span>
+        <span>blocks <b>${esc(s.blocks)}</b></span>
+        <span>overruns <b>${esc(s.overruns)}</b></span>
+        <span>short reads <b>${esc(s.short_reads)}</b></span>
+        <span>stalls <b>${esc(s.stalls)}</b></span>
+      </div>
+      <details class="fold" data-key="${esc(s.role || s.name)}"${openChannels.has(s.role || s.name) ? " open" : ""}>
+        <summary>Channels: ${chans.length}${rx ? `, <b>${rx} receiving</b>` : ""}</summary>
+        <div class="scroll"><table>
+          <thead><tr><th>Ch</th><th>Channel</th><th class="num">MHz</th><th class="num">Floor dB</th><th>Now</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" class="muted">no channels in the plan for this dongle</td></tr>'}</tbody>
+        </table></div>${unc}
+      </details>
+    </div>`;
+  }).join("");
+  $("#sdrs").innerHTML = html || '<div class="muted">No dongles configured in receiver.json.</div>';
+
+  const sa = st.sdr_assign || {};
+  const notes = [];
+  if (sa.error) notes.push(`<span class="status s-critical" data-icon="×">Cannot list the dongles</span> ${esc(sa.error)}`);
+  if ((sa.duplicates || []).length) notes.push(`<span class="status s-serious" data-icon="!">Same serial</span>
+    Dongles with serial <span class="mono">${sa.duplicates.map(esc).join(", ")}</span> can't be told apart, so they are not used.
+    Give each its own serial with <span class="mono">rtl_eeprom -d &lt;index&gt; -s &lt;serial&gt;</span> (service stopped), then replug it.`);
+  const ids = sa.dongle_ids || {};
+  const named = (list) => list.map((x) => `<span class="mono">${esc(x)}</span>${ids[x] ? ` (<span class="mono">${esc(ids[x])}</span>)` : ""}`).join(", ");
+  if ((sa.spare || []).length) notes.push(`Not needed: dongle ${named(sa.spare)}. Every role already has one; give it a job on the website.`);
+  if ((sa.off || []).length) notes.push(`Turned off on the website: dongle ${named(sa.off)}.`);
+  if (sa.auto) notes.push(`<span class="muted">Roles are given to the dongles automatically, or as chosen on the website
+    (the receiver's page, Radios). Connect each dongle to the antenna named in its box below.</span>`);
+  $("#sdr-notes").innerHTML = notes.map((n) => `<div style="margin-top:4px">${n}</div>`).join("");
+  $("#sdr-notes").hidden = !notes.length;
+}
+
+function renderLatest(st) {
+  const e = st.last_eot;
+  $("#last-eot").innerHTML = e ? `<div class="big" style="font-size:20px;font-weight:600">Unit ${esc(e.unit_id)}</div>
+    <dl class="kv">
+      <dt>Brake pipe</dt><dd>${esc(e.brake_pipe_psi)} psi</dd>
+      <dt>Motion</dt><dd>${e.motion ? "moving" : "stopped"}</dd>
+      <dt>Marker light</dt><dd>${esc(e.marker_light ?? "-")}</dd>
+      <dt>Heard</dt><dd>${esc(clock(e.ts))} (${esc(ago(e.ts))})</dd>
+    </dl>` : "none yet";
+  const t = st.last_transcript, nt = st.last_no_transcript;
+  let html = t ? `<div class="quote">"${esc(t.text)}"</div>
+    <div class="muted" style="margin-top:6px">${esc(t.label || "")} ${num(t.freq, 4)} MHz, ${Math.round((t.confidence || 0) * 100)}%, ${esc(ago(t.ts))}</div>` : "none yet";
+  if (nt && nt.reason) html += `<div class="muted" style="margin-top:8px">Last clip without a transcript: ${esc(nt.reason)}</div>`;
+  $("#last-tr").innerHTML = html;
+}
+
+function renderApi(st) {
+  const rows = Object.entries(st.api || {}).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).map(([ep, r]) => {
+    const ok = r.status >= 200 && r.status < 300 || r.status === 304;
+    const cls = ok ? "s-good" : (r.status ? "s-critical" : "s-serious");
+    const icon = ok ? "✓" : "!";
+    return `<tr><td class="mono">${esc(ep)}</td><td><span class="status ${cls}" data-icon="${icon}">${esc(r.status ?? "no answer")}</span>
+      ${r.error ? `<div class="muted">${esc(r.error)}</div>` : ""}</td><td>${esc(ago(r.ts))}</td></tr>`;
+  }).join("");
+  $("#api").innerHTML = `<thead><tr><th>Endpoint</th><th>Result</th><th>When</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="3" class="muted">no requests yet</td></tr>'}</tbody>`;
+}
+
+async function refreshStatus() {
+  try {
+    status = await getJSON("/api/status");
+    now = status.ts || Date.now() / 1000;
+    $("#banner").style.display = "none";
+    renderTiles(status);
+    renderSdrs(status);
+    renderLatest(status);
+    renderApi(status);
+    renderSettingsStatus(status);
+    $("#updated").textContent = "updated " + new Date().toLocaleTimeString();
+  } catch (e) {
+    const b = $("#banner");
+    b.textContent = "Cannot reach the receiver service (" + e.message + "). Showing the last data received.";
+    b.style.display = "block";
+  }
+}
+
+// events ------------------------------------------------------------------------------------
+
+function details(ev) {
+  const out = [];
+  if (ev.state === "open") out.push('<span class="tag">in progress</span>');
+  if (ev.truncated) out.push('<span class="tag">truncated (noise rose)</span>');
+  if (ev.transcript) out.push(`<span class="quote">"${esc(ev.transcript.text)}"</span> <span class="muted">${Math.round((ev.transcript.confidence || 0) * 100)}%</span>`);
+  if (ev.transcript && ev.transcript.defect) out.push(`<span class="tag">defect report</span>`);
+  if (ev.telemetry) {
+    const t = ev.telemetry;
+    out.push(`EOT unit <b>${esc(t.unit_id)}</b>, ${esc(t.brake_pipe_psi)} psi, ${t.motion ? "moving" : "stopped"}`);
+  }
+  if (ev.source === "scanner") out.push('<span class="tag">scanner</span>');
+  return out.join(" ");
+}
+
+function renderEvents() {
+  const rows = events.slice(0, eventsShown).map((ev) => {
+    const len = ev.end_ts ? (ev.end_ts - ev.start_ts) : null;
+    return `<tr>
+      <td>${esc(clock(ev.start_ts))}</td>
+      <td>${esc(ev.label || (ev.ch != null ? "ch " + ev.ch : "-"))}</td>
+      <td class="num mono">${num(ev.freq, 4)}</td>
+      <td>${esc(ev.kind || "")}</td>
+      <td class="num">${len == null ? "-" : num(len, 1) + " s"}</td>
+      <td class="num">${esc(ev.peak_rssi ?? "-")}</td>
+      <td>${details(ev)}</td></tr>`;
+  }).join("");
+  $("#events").innerHTML = rows || '<tr><td colspan="7" class="muted">No events in the last 7 days.</td></tr>';
+  const shown = Math.min(eventsShown, events.length);
+  $("#more").hidden = !events.length || (eventsDone && shown >= events.length);
+  $("#events-note").textContent = events.length ? `${shown} shown, kept for 7 days` : "";
+}
+
+async function refreshEvents() {
+  // refresh the newest page, keeping anything older that was loaded with "Load older"
+  try {
+    const q = "/api/events?limit=100" + (kindFilter ? "&kind=" + encodeURIComponent(kindFilter) : "");
+    const fresh = await getJSON(q);
+    const ids = new Set(fresh.map((e) => e.event_id));
+    const oldest = fresh.length ? fresh[fresh.length - 1].start_ts : Infinity;
+    events = fresh.concat(events.filter((e) => !ids.has(e.event_id) && e.start_ts < oldest));
+    if (fresh.length < 100 && events.length === fresh.length) eventsDone = true;
+    renderEvents();
+  } catch (e) { /* the banner reports outages */ }
+}
+
+$("#more").addEventListener("click", async () => {
+  if (!events.length) return;
+  eventsShown += EVENTS_PAGE;
+  // older events are fetched only when the loaded ones run out
+  if (eventsShown <= events.length || eventsDone) { renderEvents(); return; }
+  const before = events[events.length - 1].start_ts;
+  const q = `/api/events?limit=100&before=${before}` + (kindFilter ? "&kind=" + encodeURIComponent(kindFilter) : "");
+  const older = await getJSON(q);
+  events = events.concat(older);
+  eventsDone = older.length < 100;
+  renderEvents();
+});
+
+$("#kind").addEventListener("change", (e) => {
+  kindFilter = e.target.value;
+  events = []; eventsDone = false; eventsShown = EVENTS_PAGE;
+  refreshEvents();
+});
+
+// recordings --------------------------------------------------------------------------------
+
+const REC_SOURCE = {detector: "Detector", candidate: "Candidate", watched: "Watched channel", voice: "Voice"};
+let recSource = "detector,candidate", playing = null, recShown = 15;
+
+function recLabel(r) {
+  const base = REC_SOURCE[r.source] || r.source;
+  return r.detector ? `${base} ${r.detector}` : base;
+}
+
+async function refreshRecordings() {
+  try {
+    const all = await getJSON("/api/recordings?limit=200" + (recSource ? "&source=" + encodeURIComponent(recSource) : ""));
+    const rows = all.slice(0, recShown);
+    $("#rec-more").hidden = all.length <= recShown;
+    $("#rec-rows").innerHTML = rows.map((r) => `<tr>
+      <td class="mono">${esc(clock(r.ts))}</td>
+      <td>${esc(recLabel(r))}</td>
+      <td class="num mono">${r.freq != null ? esc(Number(r.freq).toFixed(3)) : ""}</td>
+      <td class="num">${esc(r.seconds.toFixed(1))} s</td>
+      <td>${esc(r.text || "")}</td>
+      <td><div class="rec-actions">
+        <button type="button" data-play="${esc(r.url)}" aria-label="Play recording from ${esc(clock(r.ts))}">${playing === r.url ? "Playing" : "Play"}</button>
+        ${TOKEN ? `<button type="button" data-test="${esc(r.url)}">Test</button>` : ""}
+        <a class="button" href="${esc(r.url)}?download=1" download="${esc(r.url.slice(12).replaceAll("/", "_"))}">Download</a>
+      </div></td>
+    </tr>`).join("") || '<tr><td colspan="6" class="muted">No recordings of this kind saved yet.</td></tr>';
+    $("#rec-note").textContent = rows.length ? `Newest ${rows.length} of ${all.length} shown. WAV files, 16 kHz mono, as received.` : "";
+  } catch (e) { /* the banner reports outages */ }
+}
+
+$("#rec-rows").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-play]");
+  if (!b) return;
+  const player = $("#rec-player");
+  player.hidden = false;
+  player.src = b.dataset.play;
+  playing = b.dataset.play;
+  for (const x of document.querySelectorAll("button[data-play]")) x.textContent = x === b ? "Playing" : "Play";
+  player.play().catch(() => {});
+});
+$("#rec-player").addEventListener("ended", () => {
+  playing = null;
+  for (const x of document.querySelectorAll("button[data-play]")) x.textContent = "Play";
+});
+$("#rec-source").addEventListener("change", (e) => { recSource = e.target.value; recShown = 15; refreshRecordings(); });
+$("#rec-more").addEventListener("click", () => { recShown += 25; refreshRecordings(); });
+
+// activity tabs ---------------------------------------------------------------------------
+
+function showTab(name) {
+  for (const b of $("#act-tabs").children) b.setAttribute("aria-pressed", b.dataset.tab === name ? "true" : "false");
+  $("#tab-events").hidden = name !== "events";
+  $("#tab-recordings").hidden = name !== "recordings";
+  try { localStorage.setItem("rs-tab", name); } catch (e) { /* storage is optional */ }
+}
+$("#act-tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-tab]");
+  if (b) showTab(b.dataset.tab);
+});
+try { if (localStorage.getItem("rs-tab") === "recordings") showTab("recordings"); } catch (e) { /* storage is optional */ }
+
+// detector profiles --------------------------------------------------------------------------
+
+let profData = {profiles: [], channels: []}, viewing = null;
+
+function profLabel(p) {
+  return `${p.name} (${p.source === "headend" ? "from the headend" : "built in"})`;
+}
+
+function profOptions(selected, withDefault) {
+  const opts = profData.profiles.map((p) => `<option value="${esc(p.id)}"${p.id === selected ? " selected" : ""}>${esc(profLabel(p))}</option>`);
+  return (withDefault ? [`<option value="">default</option>`] : []).concat(opts).join("");
+}
+
+function renderProfiles() {
+  const byId = Object.fromEntries(profData.profiles.map((p) => [p.id, p]));
+  $("#prof-dets").innerHTML = profData.channels.map((c) => {
+    const dets = (c.detectors || []).map((d) => `${esc(d.name || d.detector_id)} <span class="muted">MP ${esc(d.milepost)}</span>`).join("<br>");
+    const cur = byId[c.profile];
+    const cell = `${esc(cur ? cur.name : "none")} <span class="hint">(${c.assigned ? "set by the headend" : "default for " + esc(c.railroad || "any railroad")})</span>`;
+    return `<tr><td>${esc(c.label || "")}${c.ch != null ? ' <span class="muted">ch ' + esc(c.ch) + "</span>" : ""}</td>
+      <td class="num mono">${Number(c.freq).toFixed(3)}</td><td>${esc(c.railroad || "")}</td>
+      <td>${dets || '<span class="muted">none known</span>'}</td><td>${cell}</td></tr>`;
+  }).join("") || '<tr><td colspan="5" class="muted">No channel plan yet.</td></tr>';
+  const pick = $("#prof-pick");
+  if (!viewing || !byId[viewing]) viewing = profData.profiles.length ? profData.profiles[0].id : null;
+  pick.innerHTML = profOptions(viewing, false);
+  $("#test-prof").innerHTML = profOptions(viewing, false);
+  showProfile();
+}
+
+function showProfile() {
+  const p = profData.profiles.find((x) => x.id === viewing);
+  if (!p) { $("#prof-view").innerHTML = ""; return; }
+  const vars = (p.variables || []).map((v) => `${esc(v.name)}: ${esc(v.type)}${v.decimals != null ? ", " + v.decimals + " decimal" : ""}`
+    + `${v.min != null || v.max != null ? ", " + (v.min ?? "") + " to " + (v.max ?? "") : ""}, spoken as ${esc(v.spoken)}`).join("<br>");
+  const ac = p.all_clear;
+  $("#prof-view").innerHTML = `
+    <dt>Id</dt><dd class="mono">${esc(p.id)} <span class="hint">${p.source === "headend" ? "from the headend" : "built in, used until the headend sends profiles"}</span></dd>
+    <dt>Railroad</dt><dd>${esc(p.railroad || "any")}</dd>
+    <dt>About</dt><dd>${esc(p.description || "")}</dd>
+    <dt>Wording</dt><dd class="mono">${esc(p.template)}</dd>
+    <dt>Values</dt><dd>${vars || "none"}</dd>
+    <dt>All clear</dt><dd>"${esc(ac.phrase)}" said ${ac.times} time${ac.times === 1 ? "" : "s"}, and at least ${Math.round(ac.min_wording * 100)}% of the wording heard</dd>
+    <dt>Defect words</dt><dd>${esc((p.defect_words || []).join(", ") || "none")}</dd>
+    <dt>Audio</dt><dd>${p.audio.filter === "voice" ? "voice filter (voice band, noise measured in the pauses)" : "no filter"}</dd>
+    <dt>Without a template</dt><dd>calls of ${p.trigger.min_s} to ${p.trigger.max_s} s, with at most ${p.trigger.max_other_channels} other channel${p.trigger.max_other_channels === 1 ? "" : "s"} opening at the same moment</dd>`;
+}
+
+async function refreshProfiles() {
+  try {
+    profData = await getJSON("/api/profiles");
+    renderProfiles();
+  } catch (e) {
+    $("#prof-mode").textContent = "Profiles are not available: " + e.message;
+  }
+}
+
+async function runTest(profile) {
+  const rec = $("#test-rec").value;
+  if (!rec) { $("#test-out").innerHTML = '<div class="hint">Choose a recording first.</div>'; return; }
+  const out = $("#test-out");
+  out.innerHTML = '<div class="hint">Transcribing...</div>';
+  $("#test-run").disabled = true;
+  try {
+    const r = await settingsCall("POST", "/api/profiles/test", {recording: rec, profile});
+    const fields = Object.entries(r.fields || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(", ");
+    const odd = Object.entries(r.out_of_range || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(", ");
+    out.innerHTML = `<div class="result-box">
+      <div><strong>${esc(r.result)}</strong> <span class="hint">with ${esc(r.profile)}, in ${r.seconds} s</span></div>
+      <div class="mono">${esc(r.text || "(nothing heard)")}</div>
+      <div class="hint">Values: ${fields || "none"}${odd ? "; outside their limits: " + odd : ""}.
+        Wording heard: ${r.wording != null ? Math.round(r.wording * 100) + "%" : "-"}.
+        All-clear phrase said ${r.all_clear_said ?? 0} time(s).${(r.defect_words || []).length ? " Defect words: " + esc(r.defect_words.join(", ")) + "." : ""}</div>
+      <div class="hint">Prompt: ${esc(r.prompt)}</div></div>`;
+  } catch (e) {
+    out.innerHTML = `<div class="hint" style="color:var(--critical)">Test failed: ${esc(e.message)}</div>`;
+  } finally {
+    $("#test-run").disabled = false;
+  }
+}
+
+async function fillTestRecordings(pick) {
+  try {
+    const rows = await getJSON("/api/recordings?limit=100&source=detector,candidate,watched");
+    $("#test-rec").innerHTML = rows.map((r) => `<option value="${esc(r.url)}"${r.url === pick ? " selected" : ""}>${esc(clock(r.ts))}, ${esc(recLabel(r))}, ${esc(r.seconds.toFixed(1))} s</option>`).join("")
+      || '<option value="">no detector recordings yet</option>';
+    if (pick && !rows.some((r) => r.url === pick)) {
+      $("#test-rec").insertAdjacentHTML("afterbegin", `<option value="${esc(pick)}" selected>${esc(pick.split("/").pop())}</option>`);
+    }
+  } catch (e) { /* the banner reports outages */ }
+}
+
+$("#prof-pick").addEventListener("change", (e) => { viewing = e.target.value; $("#test-prof").value = viewing; showProfile(); });
+$("#test-run").addEventListener("click", () => runTest($("#test-prof").value));
+$("#rec-rows").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-test]");
+  if (!b) return;
+  fillTestRecordings(b.dataset.test).then(() => $("#profiles").scrollIntoView({behavior: "smooth"}));
+});
+if (TOKEN) {
+  $("#prof-test").hidden = false;
+  $("#prof-mode").textContent = "Profiles and their channels are set on the headend. Test any profile on a saved recording below.";
+  fillTestRecordings(null);
+} else {
+  $("#prof-mode").textContent = "How detector announcements on each channel are read. Profiles and their channels are set on the headend.";
+}
+refreshProfiles();
+
+// signal charts -----------------------------------------------------------------------------
+
+const NS = "http://www.w3.org/2000/svg";
+const GAP_S = 180;   // a missing minute or two is drawn as a break in the line
+let signal = [];
+
+function niceTicks(lo, hi, n) {
+  const span = hi - lo || 1, step0 = span / n;
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 5, 10].map((m) => m * mag).find((s) => span / s <= n) || 10 * mag;
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+
+function timeTicks(t0, t1) {
+  const span = t1 - t0;
+  const step = [600, 1800, 3600, 7200, 3 * 3600, 6 * 3600, 12 * 3600, 86400].find((s) => span / s <= 6) || 86400;
+  const out = [], off = new Date().getTimezoneOffset() * 60;
+  for (let t = Math.ceil((t0 - off) / step) * step + off; t <= t1; t += step) out.push(t);
+  return {ticks: out, daily: step >= 86400};
+}
+
+function drawChart(root, series, t0, t1, unit) {
+  const svg = $("svg", root), tip = $(".tip", root);
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 200;
+  const m = {l: 36, r: 12, t: 8, b: 22};
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = "";
+  const vals = series.flatMap((s) => s.points.map((p) => p[1])).filter((v) => v != null);
+  const el = (tag, attrs, parent = svg) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    parent.appendChild(e);
+    return e;
+  };
+  if (!vals.length) {
+    el("text", {x: W / 2, y: H / 2, "text-anchor": "middle", class: "empty"}).textContent = "No readings in this range yet";
+    return;
+  }
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = Math.max(1, (hi - lo) * 0.15);
+  lo = Math.floor(lo - pad); hi = Math.ceil(hi + pad);
+  const x = (t) => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r);
+  const y = (v) => m.t + (hi - v) / (hi - lo) * (H - m.t - m.b);
+
+  const axis = el("g", {class: "axis"});
+  for (const v of niceTicks(lo, hi, 4)) {
+    el("line", {x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: "gridline"}, axis);
+    el("text", {x: m.l - 6, y: y(v) + 4, "text-anchor": "end"}, axis).textContent = v;
+  }
+  const {ticks, daily} = timeTicks(t0, t1);
+  for (const t of ticks) {
+    const d = new Date(t * 1000);
+    el("text", {x: x(t), y: H - 4, "text-anchor": "middle"}, axis).textContent =
+      daily ? d.toLocaleDateString([], {month: "short", day: "numeric"}) : d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+  }
+
+  for (const s of series) {
+    let d = "", prev = null;
+    for (const [t, v] of s.points) {
+      if (v == null) { prev = null; continue; }
+      d += (prev == null || t - prev > GAP_S ? "M" : "L") + x(t).toFixed(1) + "," + y(v).toFixed(1);
+      prev = t;
+    }
+    el("path", {d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round"});
+  }
+
+  // hover: crosshair, a ringed dot per series, and a tooltip
+  const cross = el("line", {y1: m.t, y2: H - m.b, stroke: "var(--muted)", "stroke-width": 1, visibility: "hidden"});
+  const dots = series.map((s) => el("circle", {r: 4, fill: s.color, stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden"}));
+  const hit = el("rect", {x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent"});
+  const times = [...new Set(series.flatMap((s) => s.points.map((p) => p[0])))].sort((a, b) => a - b);
+  const hide = () => { cross.setAttribute("visibility", "hidden"); dots.forEach((dt) => dt.setAttribute("visibility", "hidden")); tip.style.display = "none"; };
+  hit.addEventListener("pointerleave", hide);
+  hit.addEventListener("pointermove", (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = (ev.clientX - r.left) * W / r.width;
+    const tt = t0 + (px - m.l) / (W - m.l - m.r) * (t1 - t0);
+    let best = times[0];
+    for (const t of times) if (Math.abs(t - tt) < Math.abs(best - tt)) best = t;
+    if (best == null || Math.abs(best - tt) > Math.max(GAP_S, (t1 - t0) / 60)) return hide();
+    cross.setAttribute("x1", x(best)); cross.setAttribute("x2", x(best)); cross.setAttribute("visibility", "visible");
+    let rows = "";
+    series.forEach((s, i) => {
+      const p = s.points.find((q) => q[0] === best);
+      if (p && p[1] != null) {
+        dots[i].setAttribute("cx", x(best)); dots[i].setAttribute("cy", y(p[1])); dots[i].setAttribute("visibility", "visible");
+        rows += `<div><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.color};margin-right:6px"></i>${esc(s.name)} <b>${num(p[1])} ${unit}</b></div>`;
+      } else dots[i].setAttribute("visibility", "hidden");
+    });
+    tip.innerHTML = `<div class="muted">${esc(clock(best))}</div>` + (rows || "no reading");
+    tip.style.display = "block";
+    const left = x(best) / W * r.width;
+    tip.style.left = Math.min(Math.max(0, left + 12), r.width - tip.offsetWidth) + "px";
+    tip.style.top = "40px";
+  });
+}
+
+const SERIES_COLORS = ["var(--series-1)", "var(--series-2)"];
+
+function renderSignal() {
+  const t1 = Date.now() / 1000, t0 = t1 - hours * 3600;
+  drawChart($("#chart-ref"), [{name: "Reference SNR", color: "var(--series-1)",
+    points: signal.map((r) => [r.ts, r.ref_snr_db])}], t0, t1, "dB");
+
+  // one series per dongle, colored by its position in the receiver.json order
+  const names = [];
+  for (const r of signal) for (const s of r.sdrs || []) if (!names.includes(s.name)) names.push(s.name);
+  const floorSeries = names.slice(0, 2).map((n, i) => ({name: n, color: SERIES_COLORS[i],
+    points: signal.map((r) => [r.ts, ((r.sdrs || []).find((s) => s.name === n) || {}).floor_db ?? null])}));
+  $("#floor-legend").innerHTML = floorSeries.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("");
+  drawChart($("#chart-floor"), floorSeries, t0, t1, "dB");
+
+  const rows = signal.slice(-200).reverse().map((r) => `<tr><td>${esc(clock(r.ts))}</td><td class="num">${num(r.ref_snr_db)}</td>` +
+    names.slice(0, 2).map((n) => `<td class="num">${num(((r.sdrs || []).find((s) => s.name === n) || {}).floor_db)}</td>`).join("") + "</tr>").join("");
+  $("#signal-table").innerHTML = `<thead><tr><th>Time</th><th class="num">Reference SNR dB</th>` +
+    names.slice(0, 2).map((n) => `<th class="num">${esc(n)} floor dB</th>`).join("") + `</tr></thead><tbody>${rows}</tbody>`;
+}
+
+async function refreshSignal() {
+  try {
+    signal = await getJSON("/api/signal?hours=" + hours);
+    renderSignal();
+  } catch (e) { /* the banner reports outages */ }
+}
+
+// settings (only with the app's token) ------------------------------------------------------------
+
+let saved = null;
+
+async function settingsCall(method, url, body) {
+  const r = await fetch(url, {method, cache: "no-store", headers: {"X-RailSpotting-Token": TOKEN, "Content-Type": "application/json"},
+                              body: body == null ? undefined : JSON.stringify(body)});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || (r.status + " " + r.statusText));
+  return data;
+}
+
+function devRow(d) {
+  const tr = document.createElement("tr");
+  const role = d.role || "vhf";
+  tr.innerHTML = `<td><select class="d-role"><option value="vhf">VHF (voice)</option><option value="eot">UHF (EOT)</option></select></td>
+    <td><input type="text" class="d-serial mono" placeholder="any" value="${esc(d.serial || "")}"></td>
+    <td><input type="number" class="d-gain" min="0" max="50" step="0.1" placeholder="default" value="${d.gain == null ? "" : esc(d.gain)}"></td>
+    <td><button type="button" class="d-del" aria-label="Remove this dongle">Remove</button></td>`;
+  $(".d-role", tr).value = role;
+  $(".d-del", tr).addEventListener("click", () => tr.remove());
+  return tr;
+}
+
+function fillSettings(s) {
+  saved = s;
+  $("#set-label").value = s.label || "";
+  $("#set-other").checked = !!s.transcribe_other_calls;
+  $("#set-watch").value = (s.watch_clips || []).join(", ");
+  const body = $("#set-devs");
+  body.innerHTML = "";
+  for (const d of (s.sdr && s.sdr.devices) || []) body.appendChild(devRow(d));
+}
+
+function readSettings() {
+  const watch = $("#set-watch").value.split(/[\s,]+/).filter(Boolean).map(Number);
+  if (watch.some(isNaN)) throw new Error("channels must be numbers in MHz");
+  const devices = [...$("#set-devs").children].map((tr) => {
+    const d = {role: $(".d-role", tr).value};
+    const serial = $(".d-serial", tr).value.trim();
+    const gain = $(".d-gain", tr).value.trim();
+    if (serial) d.serial = serial;
+    if (gain) d.gain = Number(gain);
+    return d;
+  });
+  return {label: $("#set-label").value.trim() || null, transcribe_other_calls: $("#set-other").checked,
+          watch_clips: watch, sdr: {devices}};
+}
+
+function settingsMsg(text, ok) {
+  const m = $("#set-msg");
+  m.textContent = text;
+  m.className = ok ? "msg-ok" : "msg-err";
+}
+
+function renderSettingsStatus(st) {
+  if (!TOKEN) return;
+  const seen = (st.sdrs || []).map((s) => s.serial).filter(Boolean);
+  $("#set-seen").textContent = seen.length ? seen.join(", ") : "none";
+  $("#set-link").hidden = st.registration === "approved" || st.registration === "checking";
+}
+
+async function initSettings() {
+  if (!TOKEN) return;
+  $("#settings").hidden = false;
+  // the app's tab bar shows the logo and its own link to the site
+  $(".site-link").hidden = true;
+  $("svg.brand").style.display = "none";
+  $("#footer-mode").textContent = "Settings can be changed from this app.";
+  REG.denied[3] = "The owner denied this receiver. Use Start linking again in Settings to try again.";
+  try {
+    fillSettings(await settingsCall("GET", "/api/settings"));
+  } catch (e) {
+    settingsMsg("Could not read the settings: " + e.message, false);
+  }
+  $("#set-add").addEventListener("click", () => $("#set-devs").appendChild(devRow({})));
+  $("#set-reset").addEventListener("click", () => { if (saved) fillSettings(saved); settingsMsg("", true); });
+  $("#settings-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = $("#set-save");
+    btn.disabled = true;
+    settingsMsg("Saving and restarting...", true);
+    try {
+      fillSettings(await settingsCall("POST", "/api/settings", readSettings()));
+      settingsMsg("Saved.", true);
+    } catch (err) {
+      settingsMsg("Not saved: " + err.message, false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  $("#set-link").addEventListener("click", async () => {
+    try {
+      await settingsCall("POST", "/api/link");
+      settingsMsg("Linking started. A new code shows above in a few seconds.", true);
+    } catch (err) {
+      settingsMsg(err.message, false);
+    }
+  });
+}
+
+$("#range").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  hours = +b.dataset.h;
+  for (const x of $("#range").children) x.setAttribute("aria-pressed", x === b ? "true" : "false");
+  refreshSignal();
+});
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderSignal, 150); });
+
+initSettings(); refreshStatus(); refreshEvents(); refreshSignal(); refreshRecordings();
+setInterval(refreshStatus, 2000);
+setInterval(refreshEvents, 10000);
+setInterval(refreshSignal, 60000);
+setInterval(refreshRecordings, 60000);
+</script>
+</body>
+</html>

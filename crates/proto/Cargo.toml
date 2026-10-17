@@ -1,0 +1,29 @@
+[package]
+name = "railspotting-proto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+base64 = "0.23.1"
+ed25519-dalek = { version = "3.0.0", features = ["rand_core"] }
+hex = "0.4.3"
+log = "0.4.34"
+railspotting-common = { version = "2.0.0", path = "../common" }
+rand = "0.10.3"
+serde = { version = "1.0.229", features = ["derive"] }
+# preserve_order: bodies keep the key order they were built or read in; float_roundtrip: floats
+# parse to the exact double, so they are written back unchanged
+serde_json = { version = "1.0.154", features = ["preserve_order", "float_roundtrip"] }
+sha2 = "0.11.0"
+ureq = { version = "3.4.2", features = ["json"] }
+uuid = { version = "1.26.1", features = ["v4"] }
+
+[features]
+# proto::fake, the in-process headend for tests and `run --simulate`
+fake = []
+
+[dev-dependencies]
+railspotting-proto = { path = ".", features = ["fake"] }

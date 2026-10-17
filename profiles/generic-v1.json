@@ -1,0 +1,66 @@
+{
+  "id": "generic-v1",
+  "name": "Generic defect detector",
+  "railroad": "",
+  "description": "A starting point for detectors without their own profile: the wording common to North American defect detectors.",
+  "template": "Defect detector, milepost {milepost}, track {track}, no defects, total axles {axles}, train speed {speed}.",
+  "variables": [
+    {
+      "name": "milepost",
+      "type": "decimal",
+      "decimals": 1,
+      "min": 0,
+      "max": 3000,
+      "spoken": "digits"
+    },
+    {
+      "name": "track",
+      "type": "integer",
+      "min": 1,
+      "max": 6,
+      "spoken": "words"
+    },
+    {
+      "name": "axles",
+      "type": "integer",
+      "min": 4,
+      "max": 1000,
+      "spoken": "digits"
+    },
+    {
+      "name": "speed",
+      "type": "integer",
+      "min": 0,
+      "max": 90,
+      "spoken": "digits"
+    },
+    {
+      "name": "temperature",
+      "type": "integer",
+      "min": -40,
+      "max": 300,
+      "spoken": "digits"
+    }
+  ],
+  "audio": {
+    "filter": "voice"
+  },
+  "all_clear": {
+    "phrase": "no defects",
+    "times": 1,
+    "min_wording": 0.5
+  },
+  "defect_words": [
+    "defect detected",
+    "hot box",
+    "hot wheel",
+    "dragging",
+    "high load",
+    "wide load"
+  ],
+  "trigger": {
+    "min_s": 5,
+    "max_s": 45,
+    "max_other_channels": 1
+  }
+}

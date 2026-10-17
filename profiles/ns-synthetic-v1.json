@@ -1,0 +1,45 @@
+{
+  "id": "ns-synthetic-v1",
+  "name": "Norfolk Southern synthetic voice",
+  "railroad": "NS",
+  "description": "Norfolk Southern's synthetic-voice detectors. The all-clear lasts about 9 seconds and is said twice. Speech recognition often hears this voice's \"no\" as \"so\"; heard_as puts that right.",
+  "template": "Norfolk Southern, milepost {milepost}, no defects. Repeat, no defects.",
+  "variables": [
+    {
+      "name": "milepost",
+      "type": "decimal",
+      "decimals": 1,
+      "min": 0,
+      "max": 3000,
+      "spoken": "digits"
+    }
+  ],
+  "audio": {
+    "filter": "voice"
+  },
+  "all_clear": {
+    "phrase": "no defects",
+    "times": 2,
+    "min_wording": 0.8,
+    "heard_as": [
+      "so defects",
+      "so defect",
+      "oh defects"
+    ]
+  },
+  "defect_words": [
+    "defect",
+    "hot box",
+    "hot wheel",
+    "dragging",
+    "axle",
+    "temperature",
+    "high load",
+    "wide load"
+  ],
+  "trigger": {
+    "min_s": 5,
+    "max_s": 45,
+    "max_other_channels": 1
+  }
+}

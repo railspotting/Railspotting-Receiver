@@ -1,0 +1,437 @@
+{
+ "iq_file": "fixtures/local/dsp/vhf_voice.cu8",
+ "format": "cu8 interleaved I/Q, sample = b/127.5 - (1+1j)",
+ "device": {
+  "serial": "SIMVHF01",
+  "role": "vhf",
+  "sample_rate": 2880000.0,
+  "gain": 20.7,
+  "name": "VHF SDR"
+ },
+ "plan": {
+  "config_version": "fixture",
+  "heartbeat_interval_s": 60,
+  "radio_check_interval_s": 1800,
+  "poll_interval_s": 0.25,
+  "reference": {
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55
+  },
+  "channels": [
+   {
+    "ch": 1,
+    "freq": 160.905,
+    "railroad": "NS",
+    "label": "Greenville Dist. Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 2,
+    "freq": 160.245,
+    "railroad": "NS",
+    "label": "Greenville Dist. Dispatcher",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 3,
+    "freq": 161.19,
+    "railroad": "NS",
+    "label": "Yard",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 4,
+    "freq": 161.25,
+    "railroad": "NS",
+    "label": "Yard",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 5,
+    "freq": 160.95,
+    "railroad": "NS",
+    "label": "Charlotte Dist. Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 6,
+    "freq": 161.31,
+    "railroad": "NS",
+    "label": "Charlotte Dist. Dispatcher",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 7,
+    "freq": 161.1,
+    "railroad": "CSX",
+    "label": "Belton Sub Road",
+    "kind": "voice",
+    "proximity": true
+   },
+   {
+    "ch": 8,
+    "freq": 161.37,
+    "railroad": "CSX",
+    "label": "Belton Sub Dispatcher (AP)",
+    "kind": "voice",
+    "proximity": false
+   },
+   {
+    "ch": 9,
+    "freq": 457.9375,
+    "railroad": null,
+    "label": "EOT (end of train)",
+    "kind": "telemetry",
+    "proximity": true
+   },
+   {
+    "ch": 10,
+    "freq": 452.9375,
+    "railroad": null,
+    "label": "HOT (head of train)",
+    "kind": "telemetry",
+    "proximity": true
+   }
+  ],
+  "upload": {
+   "max_batch": 200,
+   "flush_interval_s": 2
+  }
+ },
+ "sdr_settings": {
+  "record_keep": 500,
+  "record_bursts": false
+ },
+ "block_samples": 114688,
+ "rate": 2880000.0,
+ "blocks": 151,
+ "block_ts": "t0 = 0; block k covers [k*B/rate, (k+1)*B/rate) and is processed with ts = (k+1)*B/rate",
+ "center_mhz": 161.5452,
+ "window_mhz": [
+  160.2204,
+  162.87
+ ],
+ "events": [
+  {
+   "event_id": "251a20af-560f-4dd3-af4b-0a8217f6f920",
+   "state": "open",
+   "start_ts": 1.0,
+   "end_ts": null,
+   "freq": 160.95,
+   "ch": 5,
+   "kind": "voice",
+   "peak_rssi": 410,
+   "avg_rssi": 410,
+   "samples": 2
+  },
+  {
+   "event_id": "3358c025-aa7e-4109-98a7-c5709f16422c",
+   "state": "open",
+   "start_ts": 1.51,
+   "end_ts": null,
+   "freq": 160.245,
+   "ch": 2,
+   "kind": "voice",
+   "peak_rssi": 392,
+   "avg_rssi": 391,
+   "samples": 2
+  },
+  {
+   "event_id": "88d726b8-2b03-43d4-a3fa-076928ec79fc",
+   "state": "open",
+   "start_ts": 1.99,
+   "end_ts": null,
+   "freq": 161.31,
+   "ch": 6,
+   "kind": "voice",
+   "peak_rssi": 398,
+   "avg_rssi": 397,
+   "samples": 2
+  },
+  {
+   "event_id": "3358c025-aa7e-4109-98a7-c5709f16422c",
+   "state": "closed",
+   "start_ts": 1.51,
+   "end_ts": 2.99,
+   "freq": 160.245,
+   "ch": 2,
+   "kind": "voice",
+   "peak_rssi": 392,
+   "avg_rssi": 391,
+   "samples": 31
+  },
+  {
+   "event_id": "88d726b8-2b03-43d4-a3fa-076928ec79fc",
+   "state": "closed",
+   "start_ts": 1.99,
+   "end_ts": 3.5,
+   "freq": 161.31,
+   "ch": 6,
+   "kind": "voice",
+   "peak_rssi": 398,
+   "avg_rssi": 398,
+   "samples": 76
+  },
+  {
+   "event_id": "251a20af-560f-4dd3-af4b-0a8217f6f920",
+   "state": "closed",
+   "start_ts": 1.0,
+   "end_ts": 4.0,
+   "freq": 160.95,
+   "ch": 5,
+   "kind": "voice",
+   "peak_rssi": 410,
+   "avg_rssi": 410,
+   "samples": 151
+  },
+  {
+   "event_id": "126aa122-05ee-418d-a1cf-f582c0abc0da",
+   "state": "open",
+   "start_ts": 4.5,
+   "end_ts": null,
+   "freq": 161.1,
+   "ch": 7,
+   "kind": "voice",
+   "peak_rssi": 403,
+   "avg_rssi": 403,
+   "samples": 2
+  },
+  {
+   "event_id": "126aa122-05ee-418d-a1cf-f582c0abc0da",
+   "state": "closed",
+   "start_ts": 4.5,
+   "end_ts": 5.61,
+   "freq": 161.1,
+   "ch": 7,
+   "kind": "voice",
+   "peak_rssi": 404,
+   "avg_rssi": 403,
+   "samples": 56
+  }
+ ],
+ "final": {
+  "channels": [
+   {
+    "freq": 160.245,
+    "ch": 2,
+    "label": "Greenville Dist. Dispatcher",
+    "kind": "voice",
+    "floor_db": 17.0,
+    "receiving": false
+   },
+   {
+    "freq": 160.905,
+    "ch": 1,
+    "label": "Greenville Dist. Road",
+    "kind": "voice",
+    "floor_db": 16.9,
+    "receiving": false
+   },
+   {
+    "freq": 160.95,
+    "ch": 5,
+    "label": "Charlotte Dist. Road",
+    "kind": "voice",
+    "floor_db": 16.9,
+    "receiving": false
+   },
+   {
+    "freq": 161.1,
+    "ch": 7,
+    "label": "Belton Sub Road",
+    "kind": "voice",
+    "floor_db": 17.0,
+    "receiving": false
+   },
+   {
+    "freq": 161.19,
+    "ch": 3,
+    "label": "Yard",
+    "kind": "voice",
+    "floor_db": 16.9,
+    "receiving": false
+   },
+   {
+    "freq": 161.25,
+    "ch": 4,
+    "label": "Yard",
+    "kind": "voice",
+    "floor_db": 17.0,
+    "receiving": false
+   },
+   {
+    "freq": 161.31,
+    "ch": 6,
+    "label": "Charlotte Dist. Dispatcher",
+    "kind": "voice",
+    "floor_db": 17.0,
+    "receiving": false
+   },
+   {
+    "freq": 161.37,
+    "ch": 8,
+    "label": "Belton Sub Dispatcher (AP)",
+    "kind": "voice",
+    "floor_db": 16.9,
+    "receiving": false
+   }
+  ],
+  "clipping": 0.0,
+  "blocks": 151,
+  "reference": {
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.1,
+   "ts": 6.013155555555553
+  }
+ },
+ "reference_samples": [
+  {
+   "block": 131,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 29.6,
+   "ts": 5.256533333333335
+  },
+  {
+   "block": 132,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.3,
+   "ts": 5.296355555555557
+  },
+  {
+   "block": 133,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 29.8,
+   "ts": 5.336177777777779
+  },
+  {
+   "block": 134,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.2,
+   "ts": 5.376000000000001
+  },
+  {
+   "block": 135,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 29.8,
+   "ts": 5.415822222222223
+  },
+  {
+   "block": 136,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.2,
+   "ts": 5.455644444444445
+  },
+  {
+   "block": 137,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.3,
+   "ts": 5.495466666666667
+  },
+  {
+   "block": 138,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.6,
+   "ts": 5.535288888888889
+  },
+  {
+   "block": 139,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.1,
+   "ts": 5.575111111111111
+  },
+  {
+   "block": 140,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 29.7,
+   "ts": 5.614933333333333
+  },
+  {
+   "block": 141,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.4,
+   "ts": 5.654755555555555
+  },
+  {
+   "block": 142,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 29.9,
+   "ts": 5.694577777777777
+  },
+  {
+   "block": 143,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.3,
+   "ts": 5.734399999999999
+  },
+  {
+   "block": 144,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 29.6,
+   "ts": 5.774222222222221
+  },
+  {
+   "block": 145,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 29.7,
+   "ts": 5.814044444444443
+  },
+  {
+   "block": 146,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.2,
+   "ts": 5.853866666666665
+  },
+  {
+   "block": 147,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.0,
+   "ts": 5.893688888888887
+  },
+  {
+   "block": 148,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 29.8,
+   "ts": 5.933511111111109
+  },
+  {
+   "block": 149,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.1,
+   "ts": 5.973333333333331
+  },
+  {
+   "block": 150,
+   "name": "NOAA WXJ21 Paris Mountain",
+   "freq": 162.55,
+   "snr_db": 30.1,
+   "ts": 6.013155555555553
+  }
+ ],
+ "last_eot": null
+}

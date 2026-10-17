@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/common", "crates/proto", "crates/dsp", "crates/detect", "crates/store", "crates/scanner",
+    "crates/engine",
+    "apps/receiver",
+    "apps/desktop",
+]
+# apps/desktop (the Tauri app) is in `members` but stays out of default-members: a plain
+# `cargo build` on a Linux appliance must never build the desktop app.
+default-members = [
+    "crates/common", "crates/proto", "crates/dsp", "crates/detect", "crates/store", "crates/scanner",
+    "crates/engine",
+    "apps/receiver",
+]
+
+[workspace.package]
+version = "2.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/railspotting/Railspotting-Receiver"
+rust-version = "1.85"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+
+[profile.dev.package."*"]
+opt-level = 2          # DSP-heavy dependencies (rustfft) are too slow unoptimized, even in tests

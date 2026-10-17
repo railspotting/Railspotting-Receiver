@@ -1,0 +1,200 @@
+{
+ "v1": {
+  "private_key_seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "public_key_b64url": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg",
+  "device_id": "rs-b827eb1a2b3c",
+  "vectors": [
+   {
+    "method": "GET",
+    "path": "/api/v1/config",
+    "timestamp": 1790865400,
+    "nonce": "00112233445566778899aabbccddeeff",
+    "body": "",
+    "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "signature": "eqMqmtPQE3ik3_dQwctlrHSr0A3j7L1w4popeK7xXdcGPYDsC2mEg-_18eHZpGpuWJZ81BTC8QiZqnlI9qPlBA"
+   },
+   {
+    "method": "POST",
+    "path": "/api/v1/heartbeat",
+    "timestamp": 1790865400,
+    "nonce": "ffeeddccbbaa99887766554433221100",
+    "body": "{\"ts\":1790865400.0,\"uptime_s\":60}",
+    "body_sha256": "3efb53f635a012593ad4867899c86df4d1d9354c132bcce020970e0751fb242d",
+    "signature": "viFzHVdL6s-yValMWLSAzKZdllCvOqj4UoiOjvzhUBtOjAZYFI7jZl8uIYobh38Tsh-TZjTf9Vbjl-c6o8JvCQ"
+   }
+  ]
+ },
+ "v1_4": {
+  "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "link_start": {
+   "method": "POST",
+   "path": "/api/v1/link",
+   "timestamp": 1791034500,
+   "nonce": "00112233445566778899aabbccddeeff",
+   "body": "{\"public_key\":\"A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg\",\"mac\":\"b8:27:eb:12:34:56\",\"hostname\":\"rx-garage\",\"platform\":\"Linux-6.6.31-rpi-aarch64\",\"agent_version\":\"1.4.0\"}",
+   "signature": "iyc7IjgPhOL17huQ_51RUyvI1gqGHUJ2jgWQMfQkfFeL2DRM6APmfTK4Z16YI9spQtMzXY5B2xND1OPmG3ooAw"
+  },
+  "link_poll": {
+   "method": "GET",
+   "path": "/api/v1/link/kq7Wv3m0Qm2JxkX9c1n8Pw",
+   "timestamp": 1791034505,
+   "nonce": "ffeeddccbbaa99887766554433221100",
+   "body": "",
+   "signature": "Ck44oYXMqCm0s42gRQqceRsJGOlaQNPF_wW4ICU268y8O5S5GO0x8Hm8h1mN2XP0T3aQH48xuKIWTLhSwgViAw"
+  },
+  "user_codes": {
+   "valid": {
+    "wdjb-mjht": "WDJBMJHT",
+    "WDJBMJHT": "WDJBMJHT",
+    "w d j b m j h t": "WDJBMJHT"
+   },
+   "invalid": [
+    "WDJB-MJHA",
+    "WDJB-MJH",
+    "WDJB-MJHTB",
+    "WDJB_MJHT",
+    ""
+   ]
+  }
+ },
+ "v1_5": {
+  "valid_detector_objects": [
+   {
+    "detector_id": "ns-475.8",
+    "railroad": "NS",
+    "milepost": 475.8,
+    "result": "no_defects",
+    "method": "sound",
+    "scores": {
+     "opening": 0.81,
+     "ending": 0.55,
+     "rhythm": null
+    },
+    "length_s": 9.2,
+    "all_clear_length_s": 9.2,
+    "repeat_of": null,
+    "heard_text": null
+   },
+   {
+    "detector_id": "ns-475.8",
+    "railroad": "NS",
+    "milepost": 475.8,
+    "result": "no_defects",
+    "method": "sound",
+    "scores": {
+     "opening": 0.79,
+     "ending": 0.54,
+     "rhythm": null
+    },
+    "length_s": 9.2,
+    "all_clear_length_s": 9.2,
+    "repeat_of": "7d0c5e1a-2f4b-4c1e-9a77-3b5f0e2d9c11",
+    "heard_text": null
+   },
+   {
+    "detector_id": "ns-475.8",
+    "railroad": "NS",
+    "milepost": 475.8,
+    "result": "no_defects",
+    "method": "rhythm_and_length",
+    "scores": {
+     "opening": 0.52,
+     "ending": 0.41,
+     "rhythm": 0.95
+    },
+    "length_s": 9.2,
+    "all_clear_length_s": 9.2,
+    "repeat_of": null,
+    "heard_text": null
+   },
+   {
+    "detector_id": "ns-475.8",
+    "railroad": "NS",
+    "milepost": 475.8,
+    "result": "different_message",
+    "method": "opening",
+    "scores": {
+     "opening": 0.79,
+     "ending": 0.16,
+     "rhythm": 0.31
+    },
+    "length_s": 11.4,
+    "all_clear_length_s": 9.2,
+    "repeat_of": null,
+    "heard_text": "defect, axle 112, south rail, hot box"
+   },
+   {
+    "detector_id": "ns-475.8",
+    "railroad": "NS",
+    "milepost": 475.8,
+    "result": "incomplete",
+    "method": "opening",
+    "scores": {
+     "opening": 0.8,
+     "ending": null,
+     "rhythm": null
+    },
+    "length_s": 6.0,
+    "all_clear_length_s": 9.2,
+    "repeat_of": null,
+    "heard_text": null
+   }
+  ],
+  "result_order": [
+   {
+    "kind": "all_clear",
+    "length_s": 9.2,
+    "all_clear_s": 9.2,
+    "result": "no_defects"
+   },
+   {
+    "kind": "all_clear",
+    "length_s": 9.5,
+    "all_clear_s": 9.2,
+    "result": "no_defects"
+   },
+   {
+    "kind": "all_clear",
+    "length_s": 9.6,
+    "all_clear_s": 9.2,
+    "result": "different_message"
+   },
+   {
+    "kind": "other",
+    "length_s": 9.2,
+    "all_clear_s": 9.2,
+    "result": "different_message"
+   },
+   {
+    "kind": "other",
+    "length_s": 11.4,
+    "all_clear_s": 9.2,
+    "result": "different_message"
+   },
+   {
+    "kind": "other",
+    "length_s": 8.3,
+    "all_clear_s": 9.2,
+    "result": "different_message"
+   },
+   {
+    "kind": "other",
+    "length_s": 8.1,
+    "all_clear_s": 9.2,
+    "result": "incomplete"
+   },
+   {
+    "kind": "incomplete",
+    "length_s": 6.0,
+    "all_clear_s": 9.2,
+    "result": "incomplete"
+   },
+   {
+    "kind": "all_clear",
+    "length_s": 7.0,
+    "all_clear_s": 9.2,
+    "result": "no_defects"
+   }
+  ]
+ }
+}

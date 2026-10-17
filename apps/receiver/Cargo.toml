@@ -1,0 +1,21 @@
+[package]
+name = "railspotting-receiver"
+description = "RailSpotting receiver: the headless service (Linux appliance, or a terminal on macOS)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "railspotting-receiver"
+path = "src/main.rs"
+
+[dependencies]
+railspotting-engine = { version = "2.0.0", path = "../../crates/engine" }
+
+[features]
+# Speech recognition with whisper.cpp (see crates/engine).
+speech = ["railspotting-engine/speech"]
+# Speech on the GPU through Metal (Apple Silicon Macs).
+metal = ["railspotting-engine/metal"]
