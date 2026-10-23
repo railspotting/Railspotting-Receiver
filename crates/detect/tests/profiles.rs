@@ -65,6 +65,24 @@ fn csx_readings() {
     // a real all-clear (heard by ear): the garbled "6 defects detected" is the misheard opening,
     // "CSX equipment defect detector", not a defect report
     assert!(r.all_clear(&csx), "{r:?}");
+    // Try's all-clears as speech recognition wrote them with this profile, 10-14 to 10-22: the
+    // milepost read digit by digit with dots, and an axle count heard with a decimal point, is
+    // misheard (it was taken as 5 axles and milepost 5.6)
+    for (heard, mp, axles) in [
+        ("CFS equipment defect detector, milepost 6.8.1. No defects. No defects. Total axle - 5.6. End of transmission.",
+         Some(68.1), None),
+        ("D.S.X, equipment defect detector, milepost 6.8.1. No defects. No defects. Total axle 7.6 ending of transmission.",
+         Some(68.1), None),
+        ("TSS. Quickest defect detector, milepost. Six, eight points on. No defects. No defects. Total axle. Seven, two, \
+          end of transmission.", Some(68.1), Some(72)),
+        ("GSS. Princess defect detection, milepost 6-8.1. No defects. No defects. Total axle 1-0-0. End of transmission.",
+         Some(68.1), Some(100)),
+    ] {
+        let r = csx.read(heard);
+        assert_eq!(r.fields.get("milepost"), mp.map(|m| json!(m)).as_ref(), "{heard}");
+        assert_eq!(r.fields.get("axles"), axles.map(|a| json!(a)).as_ref(), "{heard}");
+        assert!(r.all_clear(&csx), "{heard}: {r:?}");
+    }
     // a defect report in CSX style is one
     let r = csx.read("CSX equipment defect detector, milepost 68.1. Defect detected. Hot box, axle 23, north rail. Total axle: 1 7 4.");
     assert!(r.defect() && !r.all_clear(&csx), "{r:?}");

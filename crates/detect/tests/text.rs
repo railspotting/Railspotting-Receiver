@@ -119,6 +119,10 @@ fn spoken_mileposts() {
         ("Requesting defects detection, milepost, six, eight points, one, no defects", Some(68.1)),
         ("detector, milepost, track six, eight points, one, no defects", Some(68.1)),
         ("defects detected, milepost, 6/8.1, no defects, no defects, total axle, 1/7/4, end of train.", Some(68.1)),
+        // Try's all-clears with the csx-edd-v1 profile, 10-14 to 10-22
+        ("CFS equipment defect detector, milepost 6.8.1. No defects. No defects. Total axle - 5.6.", Some(68.1)),
+        ("TSS. Quickest defect detector, milepost. Six, eight points on. No defects.", Some(68.1)),
+        ("BSS equipment defect detector, milepost. 6-8.1.", Some(68.1)),
         ("Norfolk Southern, milepost 475.8.", Some(475.8)),
         ("mile post four seven five point eight", Some(475.8)),
         ("CSX detector, no defects", None),
@@ -170,4 +174,15 @@ fn decimals_anywhere() {
     assert_eq!(spoken_decimal("Equipment defect, six eight point one, no defects, total axles one seven four"), Some(68.1));
     assert_eq!(spoken_decimal("defect at 68.1, total axles 174"), Some(68.1));
     assert_eq!(spoken_decimal("total axles one seven four, train speed four five"), None);
+    // "milepost" heard but its number not: the axle count's misheard decimal is not the milepost
+    assert_eq!(spoken_decimal("equipment defect detector, milepost each. No defects. Total axle - 5.6."), None);
+    assert_eq!(spoken_decimal("defect detector, 6.8.1. No defects."), Some(68.1));
+}
+
+#[test]
+fn counts_heard_with_a_decimal_point_are_misheard() {
+    use railspotting_detect::text::{spoken_count_after, spoken_value_after};
+    assert_eq!(spoken_value_after("Total axle - 5.6. End of transmission.", "total axle", false), None);
+    assert_eq!(spoken_count_after("Total axle 7.6 ending of transmission.", &["total axle"]), None);
+    assert_eq!(spoken_value_after("Total axle 156. End of transmission.", "total axle", false), Some(156.0));
 }

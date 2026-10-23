@@ -158,9 +158,13 @@ fn words_of(text: &str) -> Vec<String> {
         .split(|c: char| !(c.is_alphanumeric() || c == '.'))
         .flat_map(|w| {
             // "68.1" stays one token; a lone "." or "point" marks the decimal
+            let parts: Vec<&str> = w.trim_matches('.').split('.').collect();
             if w.starts_with('.') && w.trim_matches('.').chars().all(|c| c.is_ascii_digit()) && w.len() > 1 {
                 // ".1" as in "6, 8, .1"
                 vec!["point".to_string(), w.trim_matches('.').to_string()]
+            } else if parts.len() > 2 && parts.iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit())) {
+                // "6.8.1": digits read one by one, the last dot the decimal point (68.1)
+                vec![format!("{}.{}", parts[..parts.len() - 1].concat(), parts[parts.len() - 1])]
             } else if w.contains('.') && !w.chars().all(|c| c == '.') && w.chars().any(|c| c.is_ascii_digit()) {
                 vec![w.trim_matches('.').to_string()]
             } else if w.chars().all(|c| c == '.') && !w.is_empty() {
@@ -218,8 +222,12 @@ pub fn spoken_value_after(text: &str, phrase: &str, decimal: bool) -> Option<f64
     let rest: Vec<&str> = words[at..].iter().map(String::as_str).collect();
     if let Some(first) = rest.first() {
         if first.contains('.') {
+            // a count heard with a decimal point ("total axle 5.6") is misheard, not 5
+            if !decimal {
+                return None;
+            }
             let v = first.parse::<f64>().ok()?;
-            return Some(if decimal { (v * 10.0).trunc() / 10.0 } else { v.trunc() });
+            return Some((v * 10.0).trunc() / 10.0);
         }
     }
     let (skip, (whole, used)) = match number_tokens(&rest) {
@@ -234,7 +242,7 @@ pub fn spoken_value_after(text: &str, phrase: &str, decimal: bool) -> Option<f64
     let mut whole = whole;
     let frac = if !decimal { None } else {
         match rest.get(used) {
-            Some(&"point") | Some(&"points") => number_tokens(&rest[used + 1..]).0.chars().next(),
+            Some(&"point") | Some(&"points") => decimal_digit(&rest[used + 1..]),
             // "6/8.1": digits, then the rest of the number with its decimal
             Some(t) if t.contains('.') => match t.split_once('.') {
                 Some((w, f)) if w.chars().all(|c| c.is_ascii_digit()) && f.starts_with(|c: char| c.is_ascii_digit()) => {
@@ -253,14 +261,24 @@ pub fn spoken_value_after(text: &str, phrase: &str, decimal: bool) -> Option<f64
     text.parse().ok()
 }
 
+/// The digit said after "point": a digit, or "on", which speech recognition writes for "one"
+/// there ("six, eight points on").
+fn decimal_digit(words: &[&str]) -> Option<char> {
+    number_tokens(words).0.chars().next().or_else(|| (words.first() == Some(&"on")).then_some('1'))
+}
+
 /// The first number with a decimal spoken anywhere ("six eight point one", "68.1"): the milepost
 /// when the word "milepost" itself was misheard. Whole numbers are skipped, since axle counts and
-/// speeds are whole.
+/// speeds are whole, and the search stops at the axle count or speed: a decimal there is a
+/// misheard count ("total axle 5.6"), never the milepost.
 pub fn spoken_decimal(text: &str) -> Option<f64> {
     let words = words_of(text);
     let words: Vec<&str> = words.iter().map(String::as_str).collect();
     let mut i = 0;
     while i < words.len() {
+        if matches!(words[i], "axle" | "axles" | "speed") {
+            return None;
+        }
         if words[i].contains('.') {
             if let Ok(v) = words[i].parse::<f64>() {
                 return Some((v * 10.0).trunc() / 10.0);
@@ -268,7 +286,7 @@ pub fn spoken_decimal(text: &str) -> Option<f64> {
         }
         let (whole, used) = number_tokens(&words[i..]);
         if !whole.is_empty() && matches!(words.get(i + used), Some(&"point") | Some(&"points")) {
-            if let Some(d) = number_tokens(&words[i + used + 1..]).0.chars().next() {
+            if let Some(d) = decimal_digit(&words[i + used + 1..]) {
                 return format!("{whole}.{d}").parse().ok();
             }
         }
