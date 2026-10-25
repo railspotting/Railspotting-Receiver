@@ -35,7 +35,8 @@ pipe pressure** at the end of the train and sends it, with a few status flags, t
 - with its **unit number**, so the locomotive knows it is hearing its own train's device.
 
 Because every freight train has one and it transmits all the time, the EOT is the most reliable way
-to know a train is near. Each burst lasts a fraction of a second and the receiver decodes it.
+to know a train is near. Each burst lasts a fraction of a second and the receiver decodes it. See
+[EOT and HOT]({{ '/eot-hot/' | relative_url }}) for the signal and what each packet says.
 
 ## Head-of-train devices (HOT, 452.9375 MHz)
 

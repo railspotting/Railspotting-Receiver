@@ -42,7 +42,8 @@ together with more than one other channel within a second is dropped as interfer
 
 ## End-of-train (EOT)
 
-When a burst on the EOT channel closes, the receiver **decodes** it:
+[EOT and HOT]({{ '/eot-hot/' | relative_url }}) has the full story: the devices, the signal, the
+packet and its fields. In short, when a burst on the EOT channel closes, the receiver **decodes** it:
 
 1. FM demodulation, then the two tones of 1200-baud FFSK (1200 Hz for a 1, 1800 Hz for a 0).
 2. It looks for the **sync word** after the alternating preamble, at eight timing offsets.
