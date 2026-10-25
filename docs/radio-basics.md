@@ -4,7 +4,7 @@ permalink: /radio-basics/
 ---
 
 North American railroads run their operations over radio. A receiver near the tracks can hear
-three kinds of transmissions, and each tells RailSpotting something about a train.
+four kinds of transmissions, and each tells RailSpotting something about a train.
 
 > This page is general background. The frequencies the receiver actually listens to come from
 > RailSpotting's channel plan for its area (see [How the receiver identifies signals]({{ '/identifying-signals/' | relative_url }})).
@@ -54,6 +54,14 @@ road channel in a synthetic voice:
 When it finds something, it names the defect and its position instead. Each railroad's detectors
 have their own wording and voice. An announcement tells RailSpotting **where** a train was (the
 detector's milepost), **when**, and whether it was all clear.
+
+## Positive train control (ITC, 220 MHz)
+
+Many main lines also run **positive train control** (PTC), a safety system that can stop a train
+before it passes a red signal or overspeeds. Its radio network, **ITC**, sits around **220 MHz**
+and is digital: base stations, locomotives, and **wayside units** at signals and switches, each
+reporting its state every few seconds. A receiver with a dongle for it can follow the signals
+along the line as trains pass. See [ITC]({{ '/itc/' | relative_url }}).
 
 ## What RailSpotting makes of it
 

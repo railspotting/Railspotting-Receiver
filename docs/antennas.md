@@ -25,6 +25,11 @@ The receiver listens on two bands:
   about **16 cm at 457 MHz**; it needs a ground plane (a metal roof, or radials).
 - **One dual-band antenna** also works: amateur 2 m / 70 cm dual-band verticals cover the area
   well enough, though they are tuned a little lower (146 and 440 MHz).
+- **ITC (220 MHz)** needs its own antenna: a quarter-wave whip is about **34 cm** (the receiver
+  suggests 33 cm). Amateur **tri-band** verticals for 2 m, 1.25 m and 70 cm (144, 222 and 440 MHz)
+  cover voice, ITC and EOT from one antenna; the 1.25 m band sits just above ITC. A VHF/UHF
+  diplexer's low-band port may not pass 220 MHz well, so check its range before sharing one
+  antenna with ITC.
 - The small whips that come with dongles work on a desk for testing, poorly in practice.
 
 ## Sharing one antenna: diplexer or splitter

@@ -5,24 +5,30 @@ permalink: /capabilities/
 
 ## RTL-SDR dongles
 
-A receiver uses up to three RTL-SDR dongles, each with a **job**:
+A receiver uses up to four RTL-SDR dongles, each with a **job**:
 
 | Job | Listens to | Sample rate | Default gain | Antenna |
 |---|---|---|---|---|
 | **EOT** | the end-of-train channel (457.9375 MHz), decoded | 2.4 MS/s | 40.2 dB | UHF (the shorter one) |
 | **VHF** | every voice channel in the plan, plus the reference station | 2.88 MS/s | 20.7 dB | VHF (the longer one) |
 | **HOT** | the head-of-train channel (452.9375 MHz) | 2.4 MS/s | 40.2 dB | UHF |
+| **ITC** | the 220 MHz PTC network: channel 102 and the local channels of the bases it hears ([ITC]({{ '/itc/' | relative_url }})) | 1.024 MS/s | 40.2 dB | 220 MHz (a whip about 33 cm long) |
 
 - Each dongle sees a window about **2.2 MHz** (at 2.4 MS/s) or **2.65 MHz** (at 2.88 MS/s) wide,
   and hears **every plan channel in it at once**. The receiver centres the window to fit the
   channels with the most room, avoiding the centre spike every RTL-SDR has. A channel outside the
   window is listed as "uncovered".
-- **Jobs are automatic:** the first dongle plugged in takes EOT, the second VHF, the third HOT. The
-  receiver remembers which dongle (by serial) has which job. When a dongle is gone for more than a
-  minute (thrown away, or swapped), its job goes to the next free dongle, so a replacement takes
-  over within a minute without any setting.
-- **Or chosen on the website:** the receiver's page on RailSpotting lists its dongles (by an
-  anonymous ID) and lets the owner pick EOT, VHF, HOT or off for each.
+- **Jobs are automatic:** free dongles take jobs in a **role order**, by default **EOT, ITC, VHF,
+  HOT** (VHF covers both road calls and defect detectors, which share the channels). The receiver
+  remembers which dongle (by serial) has which job. When a dongle is gone for more than a minute
+  (thrown away, or swapped), its job goes to the next free dongle, so a replacement takes over
+  within a minute without any setting.
+- **The order can change:** move jobs up or down, or switch one off (it then takes no dongle). The
+  website can set the order for a receiver; so can the receiver's console, the Mac app, or
+  `sdr.role_order` in `receiver.json`.
+- **Or a job for each dongle:** the receiver's page on RailSpotting lists its dongles (by an
+  anonymous ID) and lets the owner pick EOT, ITC, VHF, HOT or off for each. The console, the Mac
+  app and `sdr.assign` in `receiver.json` do the same by serial; a job chosen on the website wins.
 - **Health checks:** clipping (gain too high), a stalled dongle (reopened after 10 s), and a
   "stuck" dongle sending random data (unplug it for 10 s) are all detected and shown.
 

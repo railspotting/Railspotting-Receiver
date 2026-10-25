@@ -26,6 +26,7 @@ nav:
       - {title: "How the receiver identifies signals", url: "/identifying-signals/"}
       - {title: "How reports reach RailSpotting", url: "/reporting/"}
       - {title: "SDR and receiver capabilities", url: "/capabilities/"}
+      - {title: "ITC (220 MHz PTC)", url: "/itc/"}
   - title: "Setting up"
     pages:
       - {title: "Installing", url: "/installing/"}
