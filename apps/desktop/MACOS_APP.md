@@ -255,8 +255,9 @@ Update this section as phases complete: what was done, what was measured, what i
     timings with Metal (needs the model and real detector clips).
 - Phase 2: done.
   - `handle::Engine` (start, status, subscribe, apply_settings, relink, stop). The CLI's `run`
-    uses it. Settings endpoints need the per-run token and 127.0.0.1; on Linux they are off
-    unless `web.settings_api` is true. The dashboard has a Settings card when it has the token.
+    uses it. Settings endpoints need the per-run token and 127.0.0.1. Only the app has a
+    token, and it gives it to its own window only; the console receiver has none, so a page
+    served by a receiver is never editable (owner decision, October 2026). The dashboard has a Settings card when it has the token.
   - Tested: settings round trip over HTTP with an agent restart on the same port, and by hand
     in a browser.
 - Phase 3: in progress; the app runs and is ready for testing.

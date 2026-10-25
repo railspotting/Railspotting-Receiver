@@ -8,8 +8,10 @@
 //! GET /api/recordings  saved recordings, newest first (?limit=, ?source= one or several, comma separated)
 //! GET /recordings/<folder>/<name>_voice.wav  one recording (?download=1 to save it)
 //!
-//! Settings, only when the host has a token (the desktop app, or `web.settings_api` on Linux),
-//! and only from 127.0.0.1 with the token in the `X-RailSpotting-Token` header:
+//! Settings, only inside the desktop app: its engine has a per-run token that it gives to its own
+//! window and nobody else, and requests must come from 127.0.0.1 with it in the
+//! `X-RailSpotting-Token` header. The receiver run from the console has no token, so its page is
+//! always read only:
 //! GET  /api/settings  the settings the dashboard can change
 //! POST /api/settings  change them (a JSON object; see `handle::validate_settings`)
 //! POST /api/link      start linking again

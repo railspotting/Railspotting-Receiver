@@ -104,6 +104,10 @@ cargo clippy -p <crate> --tests
 - **Dongle roles** fill in `sdr.role_order` (default EOT, ITC, VHF, HOT; an owner decision of
   October 2026). The headend can set the order (`sdr_role_order`, proposed contract v1.13) and
   the receiver writes it into receiver.json.
+- **The receiver's status page is never editable.** Settings change only from the local console
+  (receiver.json, the CLI) or the Mac app's own window, which gets a per-run token injected by
+  the app. Don't add a way for a browser to get the token (no settings switch, no token in the
+  address, no token file). An owner decision of October 2026.
 - **librtlsdr is GPL.** It is loaded at run time with `libloading` and never linked or vendored.
   Keep it that way unless the maintainers decide otherwise. The one exception, an owner decision of
   October 2026: the Android app (`railspotting/Railspotting-Android`) ships a patched librtlsdr as

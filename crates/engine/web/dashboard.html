@@ -418,14 +418,9 @@ const signed = (v, d = 0) => (v == null || isNaN(v)) ? "-" : (v >= 0 ? "+" : "")
 
 let hours = 24, now = Date.now() / 1000, status = null;
 
-// The desktop app passes a per-run token, as window.RAILSPOTTING_TOKEN or in the address after
-// "#token=". Without it the page is read only. The fragment is never sent to the server, and is
-// taken out of the address bar so it isn't copied along with the link.
-const TOKEN = (() => {
-  const m = /[#&]token=([0-9a-f]+)/.exec(location.hash);
-  if (m) history.replaceState(null, "", location.pathname + location.search);
-  return window.RAILSPOTTING_TOKEN || (m && m[1]) || null;
-})();
+// Only the desktop app's own window can change settings: the app puts a per-run token in
+// window.RAILSPOTTING_TOKEN. In a browser the page is always read only.
+const TOKEN = window.RAILSPOTTING_TOKEN || null;
 const EVENTS_PAGE = 10;
 let events = [], eventsDone = false, kindFilter = "", eventsShown = EVENTS_PAGE;
 

@@ -176,6 +176,9 @@ fn without_a_token_the_page_stays_read_only() {
     assert_eq!(request(port, "POST", "/api/link", None, "").0, 501);
     assert_eq!(request(port, "GET", "/api/settings", Some(TOKEN), "").0, 404);
     assert_eq!(request(port, "POST", "/api/config-file", Some(TOKEN), r#"{"text": "{}"}"#).0, 501);
+    // the page takes a token only from the app's window, never from the address
+    let page = String::from_utf8(request(port, "GET", "/", None, "").1).unwrap();
+    assert!(page.contains("window.RAILSPOTTING_TOKEN") && !page.contains("token="));
     assert_eq!(read_json(&t.path().join("receiver.json"))["label"], "before");
     engine.stop();
 }

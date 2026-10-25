@@ -893,37 +893,11 @@ pub fn main_with(argv: Vec<String>, out: &mut dyn Write) -> i32 {
 
 use std::sync::Arc;
 
-/// The token for the settings endpoints when `web.settings_api` is on. The status page has no
-/// login, so they are off on Linux unless asked for; the token goes in `state/web_token`
-/// (readable by the service user only) for a local tool to send.
-fn settings_api_token(settings: &Settings) -> Option<String> {
-    if settings.get("web").get("settings_api") != Some(&Value::Bool(true)) {
-        return None;
-    }
-    let token = crate::handle::new_token();
-    let path = settings.state_dir().join("web_token");
-    let written = std::fs::create_dir_all(settings.state_dir()).and_then(|()| {
-        let mut f = std::fs::OpenOptions::new();
-        f.write(true).create(true).truncate(true);
-        #[cfg(unix)]
-        std::os::unix::fs::OpenOptionsExt::mode(&mut f, 0o600);
-        f.open(&path)?.write_all(token.as_bytes())
-    });
-    match written {
-        Ok(()) => {
-            log::info!("settings endpoints on (from 127.0.0.1 only); token in {}", path.display());
-            Some(token)
-        }
-        Err(e) => {
-            log::error!("settings endpoints off: {}: {e}", path.display());
-            None
-        }
-    }
-}
-
 fn run(settings: Settings, opts: AgentOptions) -> i32 {
-    let token = settings_api_token(&settings);
-    match crate::handle::Engine::start(settings, crate::handle::EngineOptions { agent: opts, token }) {
+    // no token: the status page this serves is read only. Settings change in receiver.json, or
+    // in the desktop app's own window.
+    let _ = std::fs::remove_file(settings.state_dir().join("web_token")); // left by older versions
+    match crate::handle::Engine::start(settings, crate::handle::EngineOptions { agent: opts, token: None }) {
         Ok(engine) => {
             wait_for_term();
             log::info!("stopping");

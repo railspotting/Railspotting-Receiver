@@ -77,7 +77,7 @@ Anything left out takes the default shown in `receiver.json.example`.
 | `serial_port`, `baud`, `scanner_role` | the SR30C scanner: `"auto"` finds it, `"none"` turns it off. With `scanner_role` `"auto"`, EOT comes first: the scanner holds EOT, or HOT when both an EOT and a VHF dongle are connected |
 | `transcription` | speech recognition of detector mileposts (needs the speech build and model) |
 | `transcribe_other_calls` | also transcribe calls that are not detector announcements (slow on small CPUs) |
-| `web` | the status page: `enabled`, `bind`, `port`. `settings_api: true` lets a tool on the same machine change settings through it, with the token the receiver writes to `state/web_token` |
+| `web` | the status page: `enabled`, `bind`, `port`. The page is always read only: settings change here, in receiver.json, or in the Mac app |
 | `auto_eot_focus` | when the scanner turns to EOT telemetry by itself |
 | `sdr.devices` | dongles by serial with role (`eot`, `itc`, `vhf`, `hot`), gain and sample rate; empty means each role takes a connected dongle by itself, in `sdr.role_order` |
 | `sdr.role_order` | which roles take free dongles, first to last; a role left out gets none. Default `["eot", "itc", "vhf", "hot"]`: EOT, then ITC (220 MHz PTC), then VHF (voice: defect detectors and road calls, which share the channels), then HOT. The headend can set it (`sdr_role_order`); the receiver then writes it here |
