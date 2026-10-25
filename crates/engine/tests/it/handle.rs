@@ -46,14 +46,18 @@ fn start(tmp: &Path, h: &railspotting_proto::fake::FakeHeadend, token: Option<&s
     let path = tmp.join("receiver.json");
     std::fs::write(&path, serde_json::to_string_pretty(&file).unwrap()).unwrap();
     let settings = Settings::load(&path).unwrap();
+    // the headend knows the key before the receiver starts: its first check can come at once, and
+    // an unknown device would make it forget its ID and link again (the clock is fake, so it
+    // would never check again)
+    let key = keys::load_or_create_key(&settings.credentials_path(), false).unwrap();
+    h.add_device(DEVICE_ID, &keys::public_bytes(&key), "approved");
     let opts = EngineOptions {
         agent: AgentOptions { simulate: true, ..Default::default() },
         token: token.map(str::to_string),
         control: Some(state.join("control.sock")),
     };
     let engine = Engine::start(settings, opts).expect("engine starts");
-    let agent = engine.agent().unwrap();
-    h.add_device(DEVICE_ID, &keys::public_bytes(&agent.key), "approved");
+    assert_eq!(keys::public_bytes(&engine.agent().unwrap().key), keys::public_bytes(&key), "the receiver uses that key");
     engine
 }
 
@@ -176,12 +180,7 @@ fn the_console_changes_settings_over_the_socket() {
     let engine = start(t.path(), &h, None);
     let sock = engine.control_path().expect("console socket");
     let mut con = Client::new(&sock);
-    // the device ID shows once the registration check has run, on its own thread
-    let deadline = std::time::Instant::now() + Duration::from_secs(20);
-    while con.call("GET", "/api/status", None).unwrap()["device_id"] != DEVICE_ID {
-        assert!(std::time::Instant::now() < deadline, "the status never showed the device ID");
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    assert_eq!(con.call("GET", "/api/status", None).unwrap()["device_id"], DEVICE_ID);
     assert_eq!(con.call("GET", "/api/settings", None).unwrap()["label"], "before");
     assert!(con.call("GET", "/", None).unwrap_err().contains("not offered"));
 
