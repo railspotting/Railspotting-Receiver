@@ -412,6 +412,11 @@ impl ApiClient {
         self.signed("POST", "/events", Some(&json!({"events": events})))?.json()
     }
 
+    /// ITC records (contract v1.18): `{"accepted", "duplicates", "rejected"}`.
+    pub fn post_itc(&self, records: &[Value]) -> Result<Value, ApiError> {
+        self.signed("POST", "/itc", Some(&json!({"records": records})))?.json()
+    }
+
     pub fn heartbeat(&self, body: &Value) -> Result<Value, ApiError> {
         self.signed("POST", "/heartbeat", Some(body))?.json()
     }

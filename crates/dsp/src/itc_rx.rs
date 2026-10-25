@@ -6,16 +6,21 @@
 //! given instead (`channels` in the dongle's settings, ITC channel numbers).
 //!
 //! Decoded messages go to a daily log (`state/itc/YYYY-MM-DD.jsonl`, kept `keep_days`) and to a
-//! local feed for a monitor (`serve`, 127.0.0.1:8221 by default; empty turns it off). They are not
-//! sent to the headend: they describe railroad operations.
+//! local feed for a monitor (`serve`, 127.0.0.1:8221 by default; empty turns it off). They describe
+//! railroad operations, so they are not sent to the headend. When the owner turns ITC upload on
+//! (`/config` `itc.upload`, contract v1.18), wayside state changes and base stations are, as
+//! records from `railspotting_itc::changes`; repeats never are.
 
 use num_complex::Complex32;
 use railspotting_itc::decode::{decode_burst, Decoder};
 use railspotting_itc::dsp::{channel_hz, channel_number, channels_in};
 use railspotting_itc::feed::Feed;
+use railspotting_itc::changes::Tracker;
 use railspotting_itc::survey::{beacon_of, NATIONAL_CH};
 use serde_json::{json, Map, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -23,6 +28,40 @@ use std::path::{Path, PathBuf};
 const OPEN_DB: f32 = 8.0;
 pub const DEFAULT_SERVE: &str = "127.0.0.1:8221";
 pub const DEFAULT_KEEP_DAYS: u64 = 7;
+/// The heartbeat counts messages over this many seconds.
+pub const SUMMARY_S: f64 = 60.0;
+/// The heartbeat lists base stations heard within this many seconds.
+pub const BASES_S: f64 = 300.0;
+
+/// Where ITC records go while upload is on: the agent's ITC outbox.
+pub struct ItcUpload {
+    /// Upload is on (`/config` `itc.upload`). Off, no records are made.
+    pub on: AtomicBool,
+    ns: uuid::Uuid,
+    add: Box<dyn Fn(Value) + Send + Sync>,
+}
+
+impl ItcUpload {
+    /// Record IDs are UUID v5 under `ns`; `add` takes each record.
+    pub fn new(ns: uuid::Uuid, add: Box<dyn Fn(Value) + Send + Sync>) -> Arc<ItcUpload> {
+        Arc::new(ItcUpload { on: AtomicBool::new(false), ns, add })
+    }
+
+    pub fn is_on(&self) -> bool {
+        self.on.load(Ordering::SeqCst)
+    }
+}
+
+/// A base station heard here.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Base {
+    pub local_channel: i64,
+    /// Its beacon's peak, dB relative to full scale.
+    pub level_db: f64,
+    /// The beacon's utilisation byte.
+    pub util: Option<i64>,
+    pub last: f64,
+}
 
 pub struct ItcRx {
     /// Channels given in the settings (ITC numbers); empty: found from beacons.
@@ -38,10 +77,16 @@ pub struct ItcRx {
     pub serve: String,
     pub messages: u64,
     pub by_type: BTreeMap<String, u64>,
-    /// Base radio -> (local channel, level dB, last heard).
-    pub bases: BTreeMap<String, (i64, f64, f64)>,
+    pub bases: BTreeMap<String, Base>,
     pub last_t: f64,
     pub last_error: Option<String>,
+    /// Set by the agent: where records go when upload is on.
+    pub upload: Option<Arc<ItcUpload>>,
+    /// Made when upload turns on, so every unit starts with a starting state; dropped when off.
+    tracker: Option<Tracker>,
+    /// The last minute's messages (time, type, wayside unit) and failed frames, for the heartbeat.
+    recent: VecDeque<(f64, String, Option<String>)>,
+    crc_fails: VecDeque<f64>,
 }
 
 fn utc_date(t: f64) -> String {
@@ -83,6 +128,10 @@ impl ItcRx {
             bases: BTreeMap::new(),
             last_t: 0.0,
             last_error: None,
+            upload: None,
+            tracker: None,
+            recent: VecDeque::new(),
+            crc_fails: VecDeque::new(),
         }
     }
 
@@ -127,19 +176,46 @@ impl ItcRx {
         let Some(dec) = self.decoder.as_mut() else { return };
         let mut msgs = vec![];
         for b in dec.bursts(samples) {
-            msgs.extend(decode_burst(&b, false));
+            // with the failed frames too, only to count them (a weak antenna shows in the heartbeat)
+            for m in decode_burst(&b, true) {
+                if m["crc_ok"] == true {
+                    msgs.push(m);
+                } else {
+                    self.crc_fails.push_back(m["t"].as_f64().unwrap_or(t0));
+                }
+            }
+        }
+        self.handle(&msgs, t0, center_mhz, rate);
+    }
+
+    /// Decoded messages (`messages.md`) from a window at `center_mhz` and `rate`: logged, fed,
+    /// counted, and turned into records while upload is on.
+    pub fn handle(&mut self, msgs: &[Value], t0: f64, center_mhz: f64, rate: f64) {
+        let upload = self.upload.clone().filter(|u| u.is_on());
+        match &upload {
+            Some(u) if self.tracker.is_none() => self.tracker = Some(Tracker::new(u.ns)),
+            None => self.tracker = None,
+            _ => {}
         }
         let mut add = vec![];
-        for m in &msgs {
+        for m in msgs {
             self.messages += 1;
-            *self.by_type.entry(m["type"].as_str().unwrap_or("OTHER").to_string()).or_default() += 1;
+            let kind = m["type"].as_str().unwrap_or("OTHER").to_string();
+            *self.by_type.entry(kind.clone()).or_default() += 1;
             let t = m["t"].as_f64().unwrap_or(t0);
             self.last_t = self.last_t.max(t);
+            self.recent.push_back((t, kind, m["wiu"].as_str().map(str::to_ascii_lowercase)));
+            if let (Some(tr), Some(u)) = (self.tracker.as_mut(), &upload) {
+                if let Some(r) = tr.add(m) {
+                    (u.add)(r);
+                }
+            }
             if let Some((radio, b)) = beacon_of(m) {
                 if !self.bases.contains_key(&radio) {
                     log::info!("ITC: base station {radio} heard, local channel {}", b.local);
                 }
-                self.bases.insert(radio, (b.local, b.level, t));
+                let level_db = b.level + m["floor_db"].as_f64().unwrap_or(0.0);
+                self.bases.insert(radio, Base { local_channel: b.local, level_db, util: m["util"].as_i64(), last: t });
                 if self.fixed.is_empty() && !self.watched.contains(&b.local) && !add.contains(&b.local) {
                     let heard = channels_in(center_mhz * 1e6, rate).iter().any(|&f| channel_number(f) == b.local);
                     if heard {
@@ -160,6 +236,39 @@ impl ItcRx {
             self.watched.sort();
             self.decoder = None; // remade for the new channels on the next block
         }
+        let since = self.last_t - SUMMARY_S;
+        while self.recent.front().is_some_and(|r| r.0 < since) {
+            self.recent.pop_front();
+        }
+        while self.crc_fails.front().is_some_and(|t| *t < since) {
+            self.crc_fails.pop_front();
+        }
+    }
+
+    /// The heartbeat's `itc` summary at `now` (contract v1.18, section 5), without `outbox`.
+    pub fn summary(&self, now: f64) -> Value {
+        let since = now - SUMMARY_S;
+        let recent: Vec<&(f64, String, Option<String>)> = self.recent.iter().filter(|r| r.0 >= since).collect();
+        let mut messages: BTreeMap<&str, u64> = ["WIU", "WIU_REPLY", "BEACON", "TIME", "CNTL", "other"].iter().map(|k| (*k, 0)).collect();
+        for (_, kind, _) in &recent {
+            let k = if messages.contains_key(kind.as_str()) && kind != "other" { kind.as_str() } else { "other" };
+            *messages.entry(k).or_default() += 1;
+        }
+        let units: BTreeSet<&String> = recent.iter().filter_map(|r| r.2.as_ref()).collect();
+        let bases: Vec<Value> = self.bases.iter().filter(|(_, b)| now - b.last <= BASES_S).map(|(r, b)| json!({
+            "base": r.to_ascii_lowercase(), "channel": b.local_channel,
+            // the byte is read as a percentage; larger values are not one
+            "utilisation_pct": b.util.filter(|u| (0..=100).contains(u)),
+            "level_db": (b.level_db.clamp(-150.0, 20.0) * 10.0).round() / 10.0,
+            "last_s": (now - b.last).max(0.0).round(),
+        })).collect();
+        json!({
+            "channels": self.watched,
+            "bases": bases,
+            "units_heard": units.len(),
+            "messages": messages,
+            "crc_fail": self.crc_fails.iter().filter(|t| **t >= since).count(),
+        })
     }
 
     fn write_log(&mut self, t: f64, line: &str) {
@@ -202,7 +311,7 @@ impl ItcRx {
 
     /// For the status page and `status`.
     pub fn status(&self) -> Map<String, Value> {
-        let bases: Vec<Value> = self.bases.iter().map(|(r, (ch, db, t))| json!({ "radio": r, "local_channel": ch, "level_db": db, "last": t })).collect();
+        let bases: Vec<Value> = self.bases.iter().map(|(r, b)| json!({ "radio": r, "local_channel": b.local_channel, "level_db": b.level_db, "last": b.last })).collect();
         json!({
             "channels": self.watched,
             "messages": self.messages,
@@ -212,6 +321,7 @@ impl ItcRx {
             "feed": if self.feed.is_some() { json!(self.serve) } else { Value::Null },
             "log_dir": self.dir.display().to_string(),
             "error": self.last_error,
+            "upload": self.upload.as_ref().is_some_and(|u| u.is_on()),
         })
         .as_object()
         .cloned()
@@ -282,12 +392,70 @@ mod tests {
         }
         assert_eq!(r.messages, 1);
         assert_eq!(r.by_type.get("BEACON"), Some(&1));
-        assert_eq!(r.bases.get("123456").map(|b| b.0), Some(114));
+        assert_eq!(r.bases.get("123456").map(|b| b.local_channel), Some(114));
         assert_eq!(r.watched, vec![NATIONAL_CH, 114]);
         let logged = std::fs::read_to_string(dir.join("itc").join("2026-10-23.jsonl")).unwrap();
         assert!(logged.contains("\"type\":\"BEACON\""), "{logged}");
         assert_eq!(r.status()["channels"], json!([102, 114]));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn wiu(t: f64, codes: &[i64]) -> Value {
+        json!({"type": "WIU", "wiu": "1234560ff0", "t": t, "ch": 114, "codes": codes, "crc_ok": true, "level_db": 20.0, "floor_db": -80.0})
+    }
+
+    #[test]
+    fn records_are_made_only_while_upload_is_on() {
+        let dir = std::env::temp_dir().join(format!("rs-itc-upload-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut r = ItcRx::new(&json!({"serve": ""}), &dir);
+        let got = Arc::new(std::sync::Mutex::new(vec![]));
+        let sink = got.clone();
+        let up = ItcUpload::new(uuid::Uuid::nil(), Box::new(move |v| sink.lock().unwrap().push(v)));
+        r.upload = Some(up.clone());
+        r.handle(&[wiu(1000.0, &[3])], 1000.0, 220.3, 1.024e6);
+        assert!(got.lock().unwrap().is_empty(), "off: nothing");
+        up.on.store(true, Ordering::SeqCst);
+        // on: a starting state for a unit already heard, then only changes
+        r.handle(&[wiu(1004.0, &[3]), wiu(1008.0, &[3]), wiu(1012.0, &[8])], 1004.0, 220.3, 1.024e6);
+        let recs = got.lock().unwrap().clone();
+        assert_eq!(recs.len(), 2);
+        assert_eq!(recs[0]["first"], true);
+        assert_eq!(recs[1]["previous_codes"], json!([3]));
+        assert_eq!(r.status()["upload"], true);
+        // off and on again: a starting state again
+        up.on.store(false, Ordering::SeqCst);
+        r.handle(&[wiu(1016.0, &[8])], 1016.0, 220.3, 1.024e6);
+        up.on.store(true, Ordering::SeqCst);
+        r.handle(&[wiu(1020.0, &[8])], 1020.0, 220.3, 1.024e6);
+        let recs = got.lock().unwrap().clone();
+        assert_eq!(recs.len(), 3);
+        assert_eq!(recs[2]["first"], true);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_summary_counts_the_last_minute() {
+        let dir = std::env::temp_dir().join(format!("rs-itc-summary-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut r = ItcRx::new(&json!({"serve": ""}), &dir);
+        let beacon = json!({"type": "BEACON", "radio": "123456", "t": 1000.0, "ch": 102, "channel": 114, "channels": [],
+                            "util": 37, "level_db": 18.8, "floor_db": -80.0, "crc_ok": true});
+        let time = json!({"type": "TIME", "radio": "123456", "t": 1001.0, "ch": 102, "crc_ok": true});
+        let ack = json!({"type": "ACK", "radio": "123456", "t": 1002.0, "ch": 114, "crc_ok": true});
+        r.handle(&[beacon, time, ack, wiu(1003.0, &[3]), wiu(1004.0, &[3])], 1000.0, 220.3, 1.024e6);
+        let s = r.summary(1010.0);
+        assert_eq!(s["units_heard"], 1);
+        assert_eq!(s["messages"], json!({"BEACON": 1, "CNTL": 0, "TIME": 1, "WIU": 2, "WIU_REPLY": 0, "other": 1}));
+        assert_eq!(s["bases"], json!([{"base": "123456", "channel": 114, "utilisation_pct": 37, "level_db": -61.2, "last_s": 10.0}]));
+        assert_eq!(s["crc_fail"], 0);
+        // a minute later the counts are empty; the base stays listed for 5 minutes
+        let later = r.summary(1070.0);
+        assert_eq!(later["units_heard"], 0);
+        assert_eq!(later["messages"]["WIU"], 0);
+        assert_eq!(later["bases"].as_array().unwrap().len(), 1);
+        assert!(r.summary(1400.0)["bases"].as_array().unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

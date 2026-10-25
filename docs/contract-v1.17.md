@@ -64,4 +64,5 @@ channel-plan channel numbers, and ITC channels are numbered apart. A HOT dongle 
 
 What a receiver decodes from ITC describes railroad operations. It stays on the receiver: a daily
 log under the state directory and a feed on the receiver's own machine. Uploading ITC state
-changes is proposed separately (v1.18) and is not built.
+changes is v1.18 (`contract-v1.18.md`): the receiver sends wayside state changes once the owner
+turns ITC upload on. The messages themselves still stay on the receiver.
