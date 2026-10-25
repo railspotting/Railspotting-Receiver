@@ -8,6 +8,7 @@ use crate::web::WebUI;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use railspotting_common::{load_cached_config, plan_channel, save_cached_config, Clock, Settings, AGENT_VERSION};
 use railspotting_detect::detectors::headend_detector;
+use railspotting_dsp::itc_rx::ItcUpload;
 use railspotting_dsp::sdr::{SdrSource, TranscriptDone};
 use railspotting_dsp::sim::{SimDevice, TrafficHandle, World};
 use railspotting_proto::keys::{self, PrivateKey};
@@ -23,6 +24,7 @@ use railspotting_store::assign::{auto_mode, parse_role_order, role_configs, role
 use railspotting_store::history::History;
 use railspotting_store::identity::{load_or_create_identity, save_identity, valid_device_id, SYS_NET};
 use railspotting_store::outbox::Outbox;
+use railspotting_store::ItcOutbox;
 use railspotting_store::Signal;
 use serde_json::{json, Map, Value};
 use std::collections::{HashSet, VecDeque};
@@ -44,6 +46,12 @@ pub const HISTORY_SIGNAL_S: f64 = 60.0;
 pub const TT_SECONDS: f64 = 20.0;
 pub const TT_WAIT_S: f64 = 25.0;
 pub const TT_TRIGGER: &str = "run_transcription_test";
+/// ITC record IDs are UUID v5 under the receiver's event namespace (contract v1.18).
+pub const ITC_NAMESPACE: uuid::Uuid = crate::cli::REPLAY_NAMESPACE;
+/// ITC upload settings when `/config` `itc` leaves them out (contract v1.18).
+pub const ITC_MAX_BATCH: i64 = 200;
+pub const ITC_FLUSH_S: f64 = 10.0;
+pub const ITC_MAX_AGE_S: f64 = 7.0 * 86400.0;
 pub const TT_RESULT: &str = "transcription_test.json";
 pub const LINK_TRIGGER: &str = "start_link";
 pub const LINK_IDLE_S: f64 = 5.0;
@@ -263,6 +271,8 @@ pub struct Agent {
     config: RwLock<Value>,
     etag: Mutex<Option<String>>,
     pub outbox: Outbox,
+    /// ITC records for the headend (contract v1.18), apart from events.
+    pub itc_outbox: ItcOutbox,
     pub history: History,
     pub api: ApiClient,
     pub ntp: Option<bool>,
@@ -297,9 +307,26 @@ pub struct Agent {
     threads: Mutex<Vec<JoinHandle<()>>>,
     /// Called with each event as it is queued, for the app (`handle::Engine::subscribe`).
     event_hook: RwLock<Option<EventHook>>,
+    /// ITC upload (contract v1.18): on while `/config` `itc.upload` is true. ITC dongles queue
+    /// their records through it.
+    pub itc_upload: Arc<ItcUpload>,
 }
 
 pub type EventHook = Arc<dyn Fn(&Value) + Send + Sync>;
+
+/// `/config` `itc.upload` (contract v1.18). Without `itc`, the headend does not know v1.18.
+fn itc_upload_on(cfg: &Value) -> bool {
+    cfg.get("itc").and_then(|i| i.get("upload")) == Some(&Value::Bool(true))
+}
+
+/// An ITC dongle queues its records through `up`.
+fn attach_itc(h: &SdrHandle, up: &Arc<ItcUpload>) {
+    h.with(|x| {
+        if let Some(i) = x.itc.as_mut() {
+            i.upload = Some(up.clone());
+        }
+    });
+}
 
 impl Agent {
     pub fn new(settings: Settings, opts: AgentOptions) -> Result<Arc<Agent>, String> {
@@ -379,7 +406,20 @@ impl Agent {
         let started = clock();
         let web_cfg = settings.get("web").clone();
 
+        let itc_outbox = ItcOutbox::open(state_dir.join("itc_outbox.db")).map_err(|e| format!("ITC outbox: {e:?}"))?;
+        let itc_on = itc_upload_on(&config);
+        if !itc_on {
+            // upload is off: nothing queued from before may go
+            let _ = itc_outbox.clear();
+        }
         let agent = Arc::new_cyclic(|me: &Weak<Agent>| {
+            let itc_me = me.clone();
+            let itc_upload = ItcUpload::new(ITC_NAMESPACE, Box::new(move |r: Value| {
+                if let Some(a) = itc_me.upgrade() {
+                    a.queue_itc(&r);
+                }
+            }));
+            itc_upload.on.store(itc_on, std::sync::atomic::Ordering::SeqCst);
             let emit_me = me.clone();
             let emit: railspotting_dsp::sdr::Emit = Arc::new(move |ev: Map<String, Value>| {
                 if let Some(a) = emit_me.upgrade() {
@@ -391,6 +431,9 @@ impl Agent {
             let sdrs: Vec<Arc<SdrHandle>> = devices.iter().map(|d| {
                 SdrHandle::new(SdrSource::new(d, &sdr, &state_dir, emit.clone(), dsp_tr.clone(), clock.clone()), factory.clone())
             }).collect();
+            for s in &sdrs {
+                attach_itc(s, &itc_upload);
+            }
             let roles: Vec<String> = sdrs.iter().map(|s| s.with(|x| x.role.clone())).collect();
             let assigner = if auto_sdr {
                 let mut a = RoleAssigner::new(&roles, &state_dir, clock.clone());
@@ -460,7 +503,7 @@ impl Agent {
                 id_lock: Mutex::new(()),
                 config: RwLock::new(config),
                 etag: Mutex::new(etag),
-                outbox, history, api, ntp,
+                outbox, itc_outbox, history, api, ntp,
                 recent_events: Mutex::new(VecDeque::new()),
                 last_event_ts: Mutex::new(Value::Null),
                 batch_limit: Mutex::new(None),
@@ -490,6 +533,7 @@ impl Agent {
                 traffic: Mutex::new(None),
                 threads: Mutex::new(vec![]),
                 event_hook: RwLock::new(None),
+                itc_upload,
                 settings,
             }
         });
@@ -540,6 +584,7 @@ impl Agent {
     }
 
     pub fn add_sdr(&self, h: Arc<SdrHandle>) {
+        attach_itc(&h, &self.itc_upload);
         self.sdrs.write().unwrap_or_else(|p| p.into_inner()).push(h);
     }
 
@@ -663,6 +708,7 @@ impl Agent {
         self.check_detectors(&cfg);
         // the order roles take free dongles in, from the website (contract v1.17)
         self.apply_role_order(&cfg);
+        self.apply_itc(&cfg);
         // dongle jobs chosen on the website (v1.11)
         if self.assigner.is_some() {
             let present = lock(&self.present_serials).clone();
@@ -1084,6 +1130,125 @@ impl Agent {
         }
     }
 
+    // ITC upload (contract v1.18) -------------------------------------------------------------
+
+    /// `/config` `itc.upload` turns ITC upload on and off. Off, the records queued are dropped:
+    /// ITC stays on the receiver.
+    fn apply_itc(&self, cfg: &Value) {
+        let on = itc_upload_on(cfg);
+        let was = self.itc_upload.on.swap(on, std::sync::atomic::Ordering::SeqCst);
+        if on && !was {
+            log::info!("ITC upload is on: wayside state changes and base stations go to the headend");
+        } else if !on && was {
+            self.itc_off("the headend turned ITC upload off");
+        }
+    }
+
+    fn itc_off(&self, why: &str) {
+        self.itc_upload.on.store(false, std::sync::atomic::Ordering::SeqCst);
+        let n = self.itc_outbox.clear().unwrap_or(0);
+        log::info!("{why}; ITC stays on this receiver ({n} queued records dropped)");
+    }
+
+    pub fn queue_itc(&self, record: &Value) {
+        if let Err(e) = self.itc_outbox.add(record) {
+            log::error!("ITC outbox write failed: {e:?}");
+        }
+    }
+
+    /// (records per request, seconds between requests, oldest record the headend takes in seconds)
+    fn itc_limits(&self) -> (i64, f64, f64) {
+        let cfg = self.config();
+        let itc = cfg.get("itc").cloned().unwrap_or(Value::Null);
+        let num = |k: &str| itc.get(k).and_then(Value::as_f64).filter(|v| *v > 0.0);
+        (num("max_batch").map(|v| v as i64).unwrap_or(ITC_MAX_BATCH).min(ITC_MAX_BATCH),
+         num("flush_interval_s").unwrap_or(ITC_FLUSH_S), num("max_age_s").unwrap_or(ITC_MAX_AGE_S))
+    }
+
+    /// Send one batch of queued ITC records. Ok(true) when some were sent.
+    pub fn itc_upload_once(&self) -> Result<bool, ApiError> {
+        if !self.itc_upload.is_on() {
+            return Ok(false);
+        }
+        let (batch_n, _, max_age) = self.itc_limits();
+        let old = self.itc_outbox.drop_before((self.clock)() - max_age).unwrap_or(0);
+        if old > 0 {
+            log::warn!("ITC: {old} records older than {:.0} days dropped; the headend does not take them", max_age / 86400.0);
+        }
+        let batch = self.itc_outbox.next(batch_n).unwrap_or_else(|e| {
+            log::error!("ITC outbox read failed: {e:?}");
+            vec![]
+        });
+        if batch.is_empty() {
+            return Ok(false);
+        }
+        let records = batch;
+        let resp = match self.api.post_itc(&records) {
+            Ok(r) => r,
+            Err(e) if (e.status == Some(403) && e.error == "itc_off") || e.status == Some(404) => {
+                self.itc_off("the headend says ITC upload is off");
+                let _ = self.fetch_config();
+                return Ok(false);
+            }
+            Err(e) if e.status == Some(400) => {
+                // the batch itself was refused: sending it again would fail the same way
+                log::warn!("headend refused a batch of {} ITC records ({}); dropped", records.len(), e.error);
+                let ids: Vec<&str> = records.iter().filter_map(|r| r["id"].as_str()).collect();
+                let _ = self.itc_outbox.ack(&ids);
+                return Ok(true);
+            }
+            Err(e) => return Err(e),
+        };
+        let list = |k: &str| -> Vec<String> {
+            resp.get(k).and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(String::from).collect()
+        };
+        let mut done = list("accepted");
+        done.extend(list("duplicates"));
+        for r in resp.get("rejected").and_then(Value::as_array).into_iter().flatten() {
+            let id = r.get("id").and_then(Value::as_str).unwrap_or("");
+            log::warn!("headend refused ITC record {id} ({}); dropped", value_str_opt(r.get("reason")));
+            done.push(id.to_string());
+        }
+        if let Err(e) = self.itc_outbox.ack(&done) {
+            log::error!("ITC outbox ack failed: {e:?}");
+        }
+        Ok(true)
+    }
+
+    /// At most one ITC request every `itc.flush_interval_s`; its own backoff, so ITC never holds
+    /// up events.
+    pub fn itc_upload_loop(&self) {
+        let mut backoff = Backoff::default();
+        while !self.stop_event.is_set() {
+            if !self.approved.wait(1.0) {
+                continue;
+            }
+            let (_, flush, _) = self.itc_limits();
+            match self.itc_upload_once() {
+                Ok(_) => {
+                    backoff.reset();
+                    self.stop_event.wait(flush);
+                }
+                Err(e) => {
+                    self.handle_api_error(&e);
+                    let d = backoff.next_delay(e.retry_after).max(flush);
+                    log::warn!("ITC upload failed: {e}; retry in {d:.0} s ({} queued)", self.itc_outbox.depth().unwrap_or(0));
+                    self.stop_event.wait(d);
+                }
+            }
+        }
+    }
+
+    /// The heartbeat's `itc` summary while a dongle is doing ITC (contract v1.18, section 5).
+    pub fn itc_summary(&self) -> Option<Value> {
+        let now = (self.clock)();
+        let mut v = self.sdrs().iter().find_map(|s| s.with(|x| {
+            if x.connected && x.role == "itc" { x.itc.as_ref().map(|i| i.summary(now)) } else { None }
+        }))?;
+        v["outbox"] = json!(self.itc_outbox.depth().unwrap_or(0));
+        Some(v)
+    }
+
     // uploader ----------------------------------------------------------------------------------
 
     pub fn upload_once(&self) -> Result<bool, ApiError> {
@@ -1260,13 +1425,17 @@ impl Agent {
 
     pub fn heartbeat_body(&self) -> Value {
         let now = (self.clock)();
-        json!({
+        let mut body = json!({
             "ts": crate::util::round_even(now, 1), "uptime_s": (now - self.started) as i64,
             "agent_version": AGENT_VERSION, "scanner": self.monitor.heartbeat_info(),
             "outbox_depth": self.outbox.depth().unwrap_or(0), "dropped_events": self.outbox.dropped().unwrap_or(0),
             "last_event_ts": lock(&self.last_event_ts).clone(), "clock_synced": self.clock_synced(),
             "capabilities": self.capabilities(),
-        })
+        });
+        if let Some(itc) = self.itc_summary() {
+            body["itc"] = itc;
+        }
+        body
     }
 
     pub fn heartbeat_once(&self) -> Result<Value, ApiError> {
@@ -1922,6 +2091,7 @@ impl Agent {
                            "error": lock(&self.sched).sdr_scan_error.clone(),
                            // v1.11: dongles turned off on the website, and each plugged-in dongle's ID there
                            "off": self.dongles_off(), "dongle_ids": self.present_dongle_ids()},
+            "itc_upload": {"on": self.itc_upload.is_on(), "outbox": self.itc_outbox.depth().unwrap_or(0)},
             "scanner_role": self.scanner_role(), "scanner_job_from": lock(&self.scanner_job_from).clone(),
             "scanner_id": self.scanner_id(), "focus": self.focus.active(),
             "auto_eot_runs": lock(&self.auto_eot).runs(),
@@ -2027,6 +2197,7 @@ impl Agent {
         }
         self.spawn("registration_loop", |a| a.registration_loop(false));
         self.spawn("uploader_loop", Agent::uploader_loop);
+        self.spawn("itc_upload_loop", Agent::itc_upload_loop);
         self.spawn("heartbeat_loop", Agent::heartbeat_loop);
         self.spawn("command_loop", Agent::command_loop);
         self.spawn("scheduler_loop", Agent::scheduler_loop);

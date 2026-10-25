@@ -8,12 +8,15 @@
 //! - `decode`: samples in, decoded messages out (`messages.md` describes them);
 //! - `recording`: `.cu8` recordings with a `.json` sidecar;
 //! - `feed`: decoded messages over TCP for a monitor;
-//! - `survey`: the tally and report of `railspotting-receiver itc survey`.
+//! - `survey`: the tally and report of `railspotting-receiver itc survey`;
+//! - `changes`: wayside state changes and base stations, as records for the headend (contract
+//!   v1.18).
 //!
 //! How the protocol was worked out, with the evidence, is in `findings.md`. Decoded messages
-//! describe railroad operations: they stay on the receiver (its log and local feed) and are not
-//! sent to the headend.
+//! describe railroad operations: they stay on the receiver (its log and local feed). Only state
+//! changes go to the headend, and only when its owner turns ITC upload on.
 
+pub mod changes;
 pub mod decode;
 pub mod dsp;
 pub mod feed;

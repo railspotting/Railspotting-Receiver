@@ -25,6 +25,7 @@ Decoded messages describe railroad operations. Keep them on machines you control
 | `crc_ok` | boolean | The CRC-16 checked out |
 | `corrected` | integer | Bytes the RS(16,12) code corrected |
 | `level_db` | number | The burst's peak above the channel's noise floor, dB |
+| `floor_db` | number | The channel's noise floor, dB relative to full scale (so `floor_db + level_db` is the burst's peak) |
 | `hex` | string | The message's bytes, without CRC or trailer, in hex |
 | `trailer` | string | Types above 5 only: the 4 bytes before the CRC, hex (thought to be an authentication code) |
 | `radio` | string | A base or radio ID, 6 hex digits, where the type carries one (see below) |
