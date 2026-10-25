@@ -3373,6 +3373,7 @@ dependencies = [
  "num-complex",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]

@@ -6,12 +6,14 @@
 pub mod assign;
 pub mod history;
 pub mod identity;
+pub mod itc_outbox;
 pub mod outbox;
 pub mod jsonfmt;
 pub mod usb;
 
 pub use assign::{auto_mode, role_configs, slot_keys, RoleAssigner, ROLES_FILE};
 pub use history::History;
+pub use itc_outbox::ItcOutbox;
 pub use outbox::Outbox;
 
 use serde_json::Value;

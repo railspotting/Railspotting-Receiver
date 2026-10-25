@@ -576,6 +576,8 @@ function renderSdrs(st) {
         <dt>Antenna</dt><dd><b>${esc(s.antenna || "")}</b></dd>
         <dt>Center</dt><dd>${num(s.center_mhz, 4)} MHz, window ${win}</dd>
         <dt>Sample rate</dt><dd>${num((s.rate || 0) / 1e6, 2)} MS/s, gain ${num(s.gain)} dB</dd>
+        ${s.itc ? `<dt>ITC</dt><dd>${esc(s.itc.messages)} messages from ${(s.itc.bases || []).length} base stations;
+          ${s.itc.upload ? "state changes go to the headend" : "kept on this receiver"}</dd>` : ""}
         ${s.reference ? `<dt>Reference</dt><dd>${signed(s.reference.snr_db)} dB SNR</dd>` : ""}
         ${s.last_error ? `<dt>Last error</dt><dd>${esc(s.last_error)}</dd>` : ""}
       </dl>

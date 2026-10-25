@@ -3,7 +3,8 @@
 Listens to railroad radio with RTL-SDR dongles (and optionally a Uniden SR30C scanner), detects
 voice calls, end-of-train (EOT) telemetry and defect detector announcements, and reports them to
 the RailSpotting headend. With a 220 MHz dongle it also decodes ITC, the radio system that carries
-positive train control (PTC) messages, and keeps what it hears on the receiver.
+positive train control (PTC) messages. It keeps the messages on the receiver; when the owner turns
+ITC upload on, it reports wayside signal state changes (not the messages) to the headend.
 
 This is the Rust receiver, version 2.x.
 
@@ -93,7 +94,11 @@ it listens to the national channel (102) for base station beacons, adds the loca
 every base heard, and writes each decoded message to `state/itc/YYYY-MM-DD.jsonl` (kept for 7
 days) and to a local feed on 127.0.0.1:8221 that a monitor (RailSpotting-ITC-Monitor) can read.
 `status` and the status page show the channels, the bases heard and the message counts. ITC
-messages describe railroad operations: they stay on the receiver and are not sent to the headend.
+messages describe railroad operations: they stay on the receiver. When the owner turns ITC upload
+on for the receiver on the website (`/config` `itc.upload`, contract v1.18,
+[docs/contract-v1.18.md](docs/contract-v1.18.md)), the receiver also sends each wayside unit's state
+changes and the base stations it hears, never the repeats. Turned off, it sends nothing and drops
+what is queued. The heartbeat carries a short ITC summary while a dongle does ITC.
 The role's settings (`sdr.devices` entry for `itc`): `channels` (fixed ITC channel numbers instead
 of beacons), `serve` (the feed's address; empty turns it off), `keep_days`, `center_mhz`.
 

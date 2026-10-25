@@ -43,6 +43,9 @@ order as they are plugged in; a role left out of the list takes no dongle (it is
 
 ## 3. ITC messages are not uploaded
 
+(Contract v1.18, `contract-v1.18.md`, adds the upload of wayside state changes, when the owner
+turns it on. The messages themselves still stay on the receiver.)
+
 What a receiver decodes from ITC describes railroad operations (base station positions, wayside
 signal and switch states). It stays on the receiver: a daily log under the state directory and a
 feed on the receiver's own machine. Nothing in this version sends it to the headend, and no
