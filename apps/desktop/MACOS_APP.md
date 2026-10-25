@@ -297,6 +297,8 @@ Update this section as phases complete: what was done, what was measured, what i
     as on Quit and restarts on the new version. See `packaging/macos/README.md`.
   - Checked: the build on this Mac with the updater key gives the ad-hoc signed app, the `.dmg`,
     the update bundle and its signature, and `release-files.sh` writes `latest.json`.
+  - Fixed in 2.0.2: 2.0.1 could not load librtlsdr (the hardened runtime's library validation
+    refuses Homebrew's ad-hoc signed library). `packaging/macos/entitlements.plist` allows it.
   - Left: a Developer ID certificate and notarization (the Apple secrets; the workflow uses them
     once set), the Linux binaries in the release, and an update from one release to the next
     tested on a real install.

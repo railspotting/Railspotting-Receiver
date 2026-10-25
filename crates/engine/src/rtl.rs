@@ -64,6 +64,16 @@ macro_rules! sym {
     };
 }
 
+/// Why librtlsdr did not load: the error for a full path that exists (an installed library that
+/// would not load, say for macOS's library validation), else the first one.
+fn load_error(names: &[&str], errors: Vec<String>) -> String {
+    let found = names.iter().zip(&errors).find(|(n, _)| n.starts_with('/') && std::path::Path::new(n).exists());
+    match found {
+        Some((_, e)) => e.clone(),
+        None => errors.into_iter().next().unwrap_or_else(|| "librtlsdr not found".into()),
+    }
+}
+
 impl Lib {
     fn load() -> Result<Lib, DriverError> {
         let mut errors = vec![];
@@ -74,7 +84,7 @@ impl Lib {
                 Err(e) => errors.push(e.to_string()),
             }
         }
-        Err(DriverError(errors.into_iter().next().unwrap_or_else(|| "librtlsdr not found".into())))
+        Err(DriverError(load_error(&LIB_NAMES, errors)))
     }
 
     fn from(lib: Library) -> Result<Lib, DriverError> {
@@ -413,6 +423,15 @@ impl Drop for RtlDevice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_load_error_is_the_installed_librarys() {
+        let errs = || vec!["not found: libx.so".to_string(), "refused: /bin/sh".to_string(), "not found: /nowhere/libx".to_string()];
+        // a library that is there but would not load says why, not that a bare name is missing
+        assert_eq!(load_error(&["libx.so", "/bin/sh", "/nowhere/libx"], errs()), "refused: /bin/sh");
+        assert_eq!(load_error(&["libx.so", "/nowhere/a", "/nowhere/libx"], errs()), "not found: libx.so");
+        assert_eq!(load_error(&[], vec![]), "librtlsdr not found");
+    }
 
     #[test]
     fn missing_dongle_texts() {
