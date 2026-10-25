@@ -16,6 +16,8 @@
   --grid: #e9e8e4;
   --series-1: #2a78d6;
   --series-2: #eb6834;
+  --series-3: #1f9d6b;
+  --series-4: #9b51c9;
   --good: #0ca30c;
   --warning: #fab219;
   --serious: #ec835a;
@@ -38,6 +40,8 @@
     --grid: #2a2a27;
     --series-1: #3987e5;
     --series-2: #d95926;
+    --series-3: #2fb784;
+    --series-4: #b072dc;
     --accent: #3987e5;
     --row-hover: #232321;
     --wordmark: #f1efe9;
@@ -55,6 +59,8 @@
   --grid: #2a2a27;
   --series-1: #3987e5;
   --series-2: #d95926;
+  --series-3: #2fb784;
+  --series-4: #b072dc;
   --accent: #3987e5;
   --row-hover: #232321;
   --wordmark: #f1efe9;
@@ -118,6 +124,8 @@ a.button:hover { background: var(--row-hover); }
 .chart { position: relative; }
 .chart svg { display: block; width: 100%; height: 200px; overflow: visible; }
 .chart .title { font-weight: 600; margin-bottom: 2px; }
+.legend span { white-space: nowrap; }
+.legend { flex-wrap: wrap; row-gap: 2px; }
 .legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); margin-bottom: 6px; min-height: 18px; }
 .legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 5px; border-radius: 1px; }
 .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
@@ -182,6 +190,33 @@ textarea { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monosp
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 button.primary:hover { background: var(--accent); filter: brightness(1.08); }
 .msg-ok { color: var(--good); }
+/* tabs: one per feature, the bar scrolls sideways on a phone instead of the page */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin: 0 0 16px; overflow-x: auto; scrollbar-width: thin; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--text-2);
+  padding: 8px 14px; white-space: nowrap; font-weight: 600; }
+.tabs button:hover { background: var(--row-hover); color: var(--text); }
+.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.tabs .count { font-weight: 400; color: var(--muted); margin-left: 4px; font-size: 12px; }
+.stat-tiles { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat-tiles .card { padding: 12px 14px; }
+.stat-tiles .big { font-size: 22px; }
+.two { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); margin-bottom: 16px; }
+.feat-card { margin-bottom: 16px; }
+.meter { display: inline-block; vertical-align: middle; width: 80px; height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; margin-right: 6px; }
+.meter i { display: block; height: 100%; background: var(--series-1); }
+.codes { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.code { display: inline-block; min-width: 22px; text-align: center; padding: 0 4px; border-radius: 4px; font-size: 12px;
+  border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.code.chg { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.logs { max-height: 420px; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.logs div { padding: 1px 0; border-bottom: 1px solid var(--grid); overflow-wrap: anywhere; }
+.logs .lv { display: inline-block; width: 64px; color: var(--muted); }
+.logs .WARNING .lv { color: var(--serious); }
+.logs .ERROR .lv { color: var(--critical); }
+.logs .tm { color: var(--muted); margin-right: 8px; }
+.filter { max-width: 220px; }
+.rail-id { fill: var(--text); font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.rail-sub { fill: var(--muted); font-size: 11px; }
 .msg-err { color: var(--critical); }
 @media (max-width: 520px) {
   .form { grid-template-columns: 1fr; }
@@ -209,6 +244,16 @@ button.primary:hover { background: var(--accent); filter: brightness(1.08); }
 
   <div class="banner" id="banner"></div>
 
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Receiver features">
+    <button type="button" role="tab" data-tab="status" aria-selected="true">Status</button>
+    <button type="button" role="tab" data-tab="eot" aria-selected="false">EOT</button>
+    <button type="button" role="tab" data-tab="detector" aria-selected="false">Defect detectors</button>
+    <button type="button" role="tab" data-tab="itc" aria-selected="false">ITC</button>
+    <button type="button" role="tab" data-tab="hot" aria-selected="false">HOT</button>
+    <button type="button" role="tab" data-tab="voice" aria-selected="false">Voice</button>
+  </nav>
+
+  <section id="t-status" role="tabpanel">
   <div class="grid tiles">
     <div class="card tile" id="reg-tile">
       <div class="label">Account link</div>
@@ -332,37 +377,6 @@ button.primary:hover { background: var(--accent); filter: brightness(1.08); }
     </div>
   </div>
 
-  <div class="card section" id="profiles" style="margin-top:16px">
-    <div class="row">
-      <h2>Detector profiles</h2>
-      <span class="hint" id="prof-mode">How detector announcements on each channel are read.</span>
-    </div>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Channel</th><th class="num">MHz</th><th>Railroad</th><th>Detectors heard here</th><th>Profile</th></tr></thead>
-        <tbody id="prof-dets"></tbody>
-      </table>
-    </div>
-    <div class="prof-tools" style="margin-top:14px">
-      <label class="sub" for="prof-pick">View profile</label>
-      <select id="prof-pick"></select>
-    </div>
-    <dl class="prof-view" id="prof-view"></dl>
-
-    <div id="prof-test" hidden>
-      <h2 style="margin-top:14px">Test transcription</h2>
-      <div class="prof-tools">
-        <label class="sub" for="test-rec">Recording</label>
-        <select id="test-rec" style="max-width:100%"></select>
-        <label class="sub" for="test-prof">Profile</label>
-        <select id="test-prof"></select>
-        <button type="button" id="test-run">Test</button>
-      </div>
-      <div class="hint">Runs speech recognition on this receiver; it takes about half a minute and does not change anything.</div>
-      <div id="test-out"></div>
-    </div>
-  </div>
-
   <div class="card" id="settings" style="margin-top:16px" hidden>
     <div class="row"><h2>Settings</h2><span class="hint">Saving restarts the receiver; it takes a few seconds.</span></div>
     <form id="settings-form" autocomplete="off">
@@ -405,6 +419,52 @@ button.primary:hover { background: var(--accent); filter: brightness(1.08); }
       </div>
     </details>
   </div>
+
+  <div class="card section" id="status-logs">
+    <div class="row"><h2>Receiver log</h2><input type="text" class="filter" placeholder="Filter" aria-label="Filter the log" data-log-filter="all"></div>
+    <div class="logs" data-logs="all"></div>
+  </div>
+  </section>
+
+  <section id="t-eot" role="tabpanel" data-feature="eot" hidden></section>
+  <section id="t-detector" role="tabpanel" data-feature="detector" hidden>
+    <div data-feature-body></div>
+  <div class="card section" id="profiles" style="margin-bottom:16px">
+    <div class="row">
+      <h2>Detector profiles</h2>
+      <span class="hint" id="prof-mode">How detector announcements on each channel are read.</span>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Channel</th><th class="num">MHz</th><th>Railroad</th><th>Detectors heard here</th><th>Profile</th></tr></thead>
+        <tbody id="prof-dets"></tbody>
+      </table>
+    </div>
+    <div class="prof-tools" style="margin-top:14px">
+      <label class="sub" for="prof-pick">View profile</label>
+      <select id="prof-pick"></select>
+    </div>
+    <dl class="prof-view" id="prof-view"></dl>
+
+    <div id="prof-test" hidden>
+      <h2 style="margin-top:14px">Test transcription</h2>
+      <div class="prof-tools">
+        <label class="sub" for="test-rec">Recording</label>
+        <select id="test-rec" style="max-width:100%"></select>
+        <label class="sub" for="test-prof">Profile</label>
+        <select id="test-prof"></select>
+        <button type="button" id="test-run">Test</button>
+      </div>
+      <div class="hint">Runs speech recognition on this receiver; it takes about half a minute and does not change anything.</div>
+      <div id="test-out"></div>
+    </div>
+  </div>
+
+    <div data-feature-tail></div>
+  </section>
+  <section id="t-itc" role="tabpanel" hidden></section>
+  <section id="t-hot" role="tabpanel" data-feature="hot" hidden></section>
+  <section id="t-voice" role="tabpanel" data-feature="voice" hidden></section>
 
   <footer><span id="footer-mode">Read only.</span> Updates every 2 seconds; recordings every minute. Dongle serial numbers are shown so you can tell the dongles apart; they are never sent to the headend.</footer>
 </div>
@@ -543,13 +603,19 @@ function dongleState(s) {
 const openChannels = new Set();
 
 function renderSdrs(st) {
-  for (const d of document.querySelectorAll("#sdrs details[data-key]")) {
-    if (d.open) openChannels.add(d.dataset.key); else openChannels.delete(d.dataset.key);
-  }
-  const html = (st.sdrs || []).map((s) => {
-    // the optional third dongle (HOT) on Automatic: a line, not an empty box
-    if (!s.serial && s.role === "hot" && s.assigned !== "receiver.json") {
-      return `<div class="muted" style="margin:4px 0">${esc(s.name)}: optional. A third dongle plugged in listens for HOT.</div>`;
+  const html = (st.sdrs || []).map((s) => sdrPanel(s, "")).join("");
+  $("#sdrs").innerHTML = html || '<div class="muted">No dongles configured in receiver.json.</div>';
+  renderSdrNotes(st);
+}
+
+// one dongle's box; `where` keeps the open channel list apart per tab
+function sdrPanel(s, where) {
+    for (const d of document.querySelectorAll("details[data-key]")) {
+      if (d.open) openChannels.add(d.dataset.key); else openChannels.delete(d.dataset.key);
+    }
+    // a role with no dongle on Automatic: a line, not an empty box
+    if (!s.serial && s.assigned !== "receiver.json") {
+      return `<div class="muted" style="margin:4px 0">${esc(s.name)}: no dongle. One plugged in takes this job, in the role order.</div>`;
     }
     const [lvl, icon, label] = dongleState(s);
     const recent = s.serial && now - s.since < 30;
@@ -588,7 +654,7 @@ function renderSdrs(st) {
         <span>short reads <b>${esc(s.short_reads)}</b></span>
         <span>stalls <b>${esc(s.stalls)}</b></span>
       </div>
-      <details class="fold" data-key="${esc(s.role || s.name)}"${openChannels.has(s.role || s.name) ? " open" : ""}>
+      <details class="fold" data-key="${esc(where + (s.role || s.name))}"${openChannels.has(where + (s.role || s.name)) ? " open" : ""}>
         <summary>Channels: ${chans.length}${rx ? `, <b>${rx} receiving</b>` : ""}</summary>
         <div class="scroll"><table>
           <thead><tr><th>Ch</th><th>Channel</th><th class="num">MHz</th><th class="num">Floor dB</th><th>Now</th></tr></thead>
@@ -596,9 +662,9 @@ function renderSdrs(st) {
         </table></div>${unc}
       </details>
     </div>`;
-  }).join("");
-  $("#sdrs").innerHTML = html || '<div class="muted">No dongles configured in receiver.json.</div>';
+}
 
+function renderSdrNotes(st) {
   const sa = st.sdr_assign || {};
   const notes = [];
   if (sa.error) notes.push(`<span class="status s-critical" data-icon="×">Cannot list the dongles</span> ${esc(sa.error)}`);
@@ -653,6 +719,7 @@ async function refreshStatus() {
     renderLatest(status);
     renderApi(status);
     renderSettingsStatus(status);
+    renderTabDongle(activeTab);
     $("#updated").textContent = "updated " + new Date().toLocaleTimeString();
   } catch (e) {
     const b = $("#banner");
@@ -742,7 +809,13 @@ async function refreshRecordings() {
     const all = await getJSON("/api/recordings?limit=200" + (recSource ? "&source=" + encodeURIComponent(recSource) : ""));
     const rows = all.slice(0, recShown);
     $("#rec-more").hidden = all.length <= recShown;
-    $("#rec-rows").innerHTML = rows.map((r) => `<tr>
+    $("#rec-rows").innerHTML = recRowsHTML(rows);
+    $("#rec-note").textContent = rows.length ? `Newest ${rows.length} of ${all.length} shown. WAV files, 16 kHz mono, as received.` : "";
+  } catch (e) { /* the banner reports outages */ }
+}
+
+function recRowsHTML(rows) {
+    return rows.map((r) => `<tr>
       <td class="mono">${esc(clock(r.ts))}</td>
       <td>${esc(recLabel(r))}</td>
       <td class="num mono">${r.freq != null ? esc(Number(r.freq).toFixed(3)) : ""}</td>
@@ -754,24 +827,25 @@ async function refreshRecordings() {
         <a class="button" href="${esc(r.url)}?download=1" download="${esc(r.url.slice(12).replaceAll("/", "_"))}">Download</a>
       </div></td>
     </tr>`).join("") || '<tr><td colspan="6" class="muted">No recordings of this kind saved yet.</td></tr>';
-    $("#rec-note").textContent = rows.length ? `Newest ${rows.length} of ${all.length} shown. WAV files, 16 kHz mono, as received.` : "";
-  } catch (e) { /* the banner reports outages */ }
 }
 
-$("#rec-rows").addEventListener("click", (e) => {
+document.addEventListener("click", (e) => {
   const b = e.target.closest("button[data-play]");
   if (!b) return;
-  const player = $("#rec-player");
+  // the player in the same card
+  const player = $("audio", b.closest(".card")) || $("#rec-player");
+  for (const a of document.querySelectorAll("audio")) if (a !== player) a.pause();
   player.hidden = false;
   player.src = b.dataset.play;
   playing = b.dataset.play;
   for (const x of document.querySelectorAll("button[data-play]")) x.textContent = x === b ? "Playing" : "Play";
   player.play().catch(() => {});
 });
-$("#rec-player").addEventListener("ended", () => {
+document.addEventListener("ended", (e) => {
+  if (e.target.tagName !== "AUDIO") return;
   playing = null;
   for (const x of document.querySelectorAll("button[data-play]")) x.textContent = "Play";
-});
+}, true);
 $("#rec-source").addEventListener("change", (e) => { recSource = e.target.value; recShown = 15; refreshRecordings(); });
 $("#rec-more").addEventListener("click", () => { recShown += 25; refreshRecordings(); });
 
@@ -883,10 +957,11 @@ async function fillTestRecordings(pick) {
 
 $("#prof-pick").addEventListener("change", (e) => { viewing = e.target.value; $("#test-prof").value = viewing; showProfile(); });
 $("#test-run").addEventListener("click", () => runTest($("#test-prof").value));
-$("#rec-rows").addEventListener("click", (e) => {
+document.addEventListener("click", (e) => {
   const b = e.target.closest("button[data-test]");
   if (!b) return;
-  fillTestRecordings(b.dataset.test).then(() => $("#profiles").scrollIntoView({behavior: "smooth"}));
+  openTab("detector", true);
+  fillTestRecordings(b.dataset.test).then(() => $("#prof-test").scrollIntoView({behavior: "smooth"}));
 });
 if (TOKEN) {
   $("#prof-test").hidden = false;
@@ -996,7 +1071,7 @@ function drawChart(root, series, t0, t1, unit) {
   });
 }
 
-const SERIES_COLORS = ["var(--series-1)", "var(--series-2)"];
+const SERIES_COLORS = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)"];
 
 function renderSignal() {
   const t1 = Date.now() / 1000, t0 = t1 - hours * 3600;
@@ -1006,15 +1081,15 @@ function renderSignal() {
   // one series per dongle, colored by its position in the receiver.json order
   const names = [];
   for (const r of signal) for (const s of r.sdrs || []) if (!names.includes(s.name)) names.push(s.name);
-  const floorSeries = names.slice(0, 2).map((n, i) => ({name: n, color: SERIES_COLORS[i],
+  const floorSeries = names.slice(0, 4).map((n, i) => ({name: n, color: SERIES_COLORS[i],
     points: signal.map((r) => [r.ts, ((r.sdrs || []).find((s) => s.name === n) || {}).floor_db ?? null])}));
   $("#floor-legend").innerHTML = floorSeries.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("");
   drawChart($("#chart-floor"), floorSeries, t0, t1, "dB");
 
   const rows = signal.slice(-200).reverse().map((r) => `<tr><td>${esc(clock(r.ts))}</td><td class="num">${num(r.ref_snr_db)}</td>` +
-    names.slice(0, 2).map((n) => `<td class="num">${num(((r.sdrs || []).find((s) => s.name === n) || {}).floor_db)}</td>`).join("") + "</tr>").join("");
+    names.slice(0, 4).map((n) => `<td class="num">${num(((r.sdrs || []).find((s) => s.name === n) || {}).floor_db)}</td>`).join("") + "</tr>").join("");
   $("#signal-table").innerHTML = `<thead><tr><th>Time</th><th class="num">Reference SNR dB</th>` +
-    names.slice(0, 2).map((n) => `<th class="num">${esc(n)} floor dB</th>`).join("") + `</tr></thead><tbody>${rows}</tbody>`;
+    names.slice(0, 4).map((n) => `<th class="num">${esc(n)} floor dB</th>`).join("") + `</tr></thead><tbody>${rows}</tbody>`;
 }
 
 async function refreshSignal() {
@@ -1221,14 +1296,668 @@ $("#range").addEventListener("click", (e) => {
   for (const x of $("#range").children) x.setAttribute("aria-pressed", x === b ? "true" : "false");
   refreshSignal();
 });
+// feature tabs -------------------------------------------------------------------------------
+
+const TABS = ["status", "eot", "detector", "itc", "hot", "voice"];
+const FEATURES = {
+  eot: {role: "eot", what: "End-of-train telemetry on 457.9375 MHz, decoded on this receiver: how often bursts decode, at what level, and the units heard."},
+  hot: {role: "hot", what: "Head-of-train telemetry on 452.9375 MHz: how often bursts decode, at what level, and the units heard."},
+  detector: {role: "vhf", what: "Defect detector announcements: how each was read (sound and words), and every detector heard.", recs: "detector,candidate"},
+  voice: {role: "vhf", what: "Road voice calls, from the VHF dongle and the scanner: activity per channel and the transcripts.", recs: "voice,watched"},
+  itc: {role: "itc", what: "ITC (220 MHz train control) heard by this receiver. Wayside units repeat their status every few seconds, so only state changes are kept. The messages stay on this machine; state changes go to the headend only when the owner turns ITC upload on."},
+};
+// device codes seen so far (crates/itc/findings.md); others are set by each railroad
+const ITC_CODES = {3: "Clear", 8: "Approach", 2: "Medium Clear", 6: "Approach Medium", 15: "Stop (control point)", 13: "Stop (intermediate signal)"};
+let activeTab = "status";
+const tabHours = {};
+const logCache = {};
+
+function openTab(name, remember) {
+  if (!TABS.includes(name)) name = "status";
+  activeTab = name;
+  for (const b of $("#tabs").children) b.setAttribute("aria-selected", b.dataset.tab === name ? "true" : "false");
+  for (const t of TABS) $("#t-" + t).hidden = t !== name;
+  if (remember) history.replaceState(null, "", name === "status" ? location.pathname + location.search : "#" + name);
+  refreshTab();
+}
+
+function rangeButtons(name) {
+  const h = tabHours[name] || 24;
+  return [1, 6, 24, 168].map((x) => `<button type="button" data-h="${x}" aria-pressed="${x === h}">${x < 168 ? x + " h" : "7 d"}</button>`).join("");
+}
+
+function logCard(topic) {
+  return `<div class="card feat-card"><div class="row"><h2>Log</h2>
+      <input type="text" class="filter" placeholder="Filter" aria-label="Filter the log" data-log-filter="${topic}"></div>
+    <div class="hint" style="margin-bottom:6px">The receiver's latest log lines about this, newest first. Kept in memory since it started.</div>
+    <div class="logs" data-logs="${topic}"></div></div>`;
+}
+
+function chartBox(key, title) {
+  return `<div class="chart" data-chart="${key}"><div class="title">${esc(title)}</div><div class="legend"></div>
+    <svg role="img" aria-label="${esc(title)}"></svg><div class="tip"></div></div>`;
+}
+
+// the layout every feature tab shares, made the first time it is shown
+function scaffold(name) {
+  const root = $("#t-" + name);
+  if (root.dataset.built) return root;
+  root.dataset.built = "1";
+  const f = FEATURES[name];
+  const recs = f.recs ? `<div class="card feat-card" data-recs="${f.recs}"><div class="row"><h2>Recordings</h2>
+      <span class="hint">Saved here, newest first</span></div>
+    <audio controls preload="none" hidden style="width:100%;margin:4px 0 10px"></audio>
+    <div class="scroll"><table><thead><tr><th>Time</th><th>Source</th><th class="num">MHz</th><th class="num">Length</th><th>Heard</th><th></th></tr></thead>
+    <tbody></tbody></table></div></div>` : "";
+  const body = `<div class="row"><span class="hint" style="max-width:760px">${esc(f.what)}</span>
+      <div class="seg" data-range="${name}" role="group" aria-label="Time range">${rangeButtons(name)}</div></div>
+    <div class="grid stat-tiles" data-tiles></div>
+    <div class="card feat-card">${chartBox("bars", "")}</div>
+    <div data-tables></div>
+    <div class="grid two"><div class="card"><h2>Dongle</h2><div data-dongle class="sub">-</div></div>
+      <div class="card">${chartBox("floor", "Noise floor (dB, median of the dongle's channels)")}</div></div>
+    ${recs}`;
+  if (name === "detector") {
+    $("[data-feature-body]", root).innerHTML = body;
+    $("[data-feature-tail]", root).innerHTML = logCard(name);
+  } else {
+    root.innerHTML = body + logCard(name);
+  }
+  return root;
+}
+
+function statTiles(root, tiles) {
+  $("[data-tiles]", root).innerHTML = tiles.map(([label, big, sub]) => `<div class="card tile">
+    <div class="label">${esc(label)}</div><div class="big">${big}</div><div class="sub">${sub || ""}</div></div>`).join("");
+}
+
+function pct(a, b) {
+  return b ? Math.round(a / b * 100) + "%" : "-";
+}
+function meter(a, b) {
+  const p = b ? Math.round(a / b * 100) : 0;
+  return `<span class="meter" aria-hidden="true"><i style="width:${p}%"></i></span>${b ? p + "%" : "-"}`;
+}
+function per(step) {
+  return step <= 600 ? "10 minutes" : step <= 3600 ? "hour" : "3 hours";
+}
+function table(head, rows, empty) {
+  return `<div class="scroll"><table><thead><tr>${head.map((h) => h.startsWith(">") ? `<th class="num">${esc(h.slice(1))}</th>` : `<th>${esc(h)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.join("") || `<tr><td colspan="${head.length}" class="muted">${esc(empty)}</td></tr>`}</tbody></table></div>`;
+}
+function card(title, hint, inner) {
+  return `<div class="card feat-card"><div class="row"><h2>${esc(title)}</h2>${hint ? `<span class="hint">${hint}</span>` : ""}</div>${inner}</div>`;
+}
+
+// stacked bars over time: one bar per bucket, a stack per series
+function drawBars(root, buckets, step, t1, stacks) {
+  const svg = $("svg", root), tip = $(".tip", root);
+  $(".legend", root).innerHTML = stacks.map((s) => `<span><i style="background:${s.color};height:8px"></i>${esc(s.name)}</span>`).join("");
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 200;
+  const m = {l: 36, r: 12, t: 8, b: 22};
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = "";
+  const el = (tag, attrs, parent = svg) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    parent.appendChild(e);
+    return e;
+  };
+  const total = (b) => stacks.reduce((a, s) => a + (s.value(b) || 0), 0);
+  if (!buckets.length || !buckets.some((b) => total(b) > 0)) {
+    el("text", {x: W / 2, y: H / 2, "text-anchor": "middle", class: "empty"}).textContent = "Nothing heard in this range";
+    return;
+  }
+  const t0 = buckets[0].t;
+  const hi = Math.max(1, ...buckets.map(total));
+  const x = (t) => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r);
+  const y = (v) => m.t + (1 - v / hi) * (H - m.t - m.b);
+  const axis = el("g", {class: "axis"});
+  for (const v of niceTicks(0, hi, 4).filter(Number.isInteger)) {
+    el("line", {x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: "gridline"}, axis);
+    el("text", {x: m.l - 6, y: y(v) + 4, "text-anchor": "end"}, axis).textContent = v;
+  }
+  const {ticks, daily} = timeTicks(t0, t1);
+  for (const t of ticks) {
+    const d = new Date(t * 1000);
+    el("text", {x: x(t), y: H - 4, "text-anchor": "middle"}, axis).textContent =
+      daily ? d.toLocaleDateString([], {month: "short", day: "numeric"}) : d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+  }
+  const w = Math.max(1, x(t0 + step) - x(t0) - 1);
+  for (const b of buckets) {
+    let base = 0;
+    for (const s of stacks) {
+      const v = s.value(b) || 0;
+      if (v > 0) el("rect", {x: x(b.t), y: y(base + v), width: w, height: Math.max(1, y(base) - y(base + v)), fill: s.color});
+      base += v;
+    }
+    const hit = el("rect", {x: x(b.t), y: m.t, width: w + 1, height: H - m.t - m.b, fill: "transparent"});
+    hit.addEventListener("pointerenter", () => {
+      tip.innerHTML = `<div class="muted">${esc(clock(b.t))}, ${esc(per(step))}</div>` +
+        stacks.map((s) => `<div><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s.color};margin-right:6px"></i>${esc(s.name)} <b>${s.value(b) || 0}</b></div>`).join("");
+      tip.style.display = "block";
+      const r = svg.getBoundingClientRect();
+      tip.style.left = Math.min(Math.max(0, x(b.t) / W * r.width + 12), r.width - tip.offsetWidth) + "px";
+      tip.style.top = "40px";
+    });
+    hit.addEventListener("pointerleave", () => { tip.style.display = "none"; });
+  }
+}
+
+function renderTabDongle(name) {
+  const f = FEATURES[name];
+  if (!f || !status) return;
+  const box = $(`#t-${name} [data-dongle]`);
+  if (!box) return;
+  const s = (status.sdrs || []).find((x) => x.role === f.role);
+  box.innerHTML = s ? sdrPanel(s, name + ":") : `<span class="muted">No ${esc(f.role.toUpperCase())} dongle is set up on this receiver.</span>`;
+}
+
+function renderFloor(name, sig, hours) {
+  const root = $(`#t-${name} [data-chart="floor"]`);
+  if (!root) return;
+  const role = FEATURES[name].role;
+  const t1 = Date.now() / 1000;
+  const series = [{name: role.toUpperCase() + " floor", color: "var(--series-1)",
+    points: sig.map((r) => [r.ts, ((r.sdrs || []).find((s) => s.role === role) || {}).floor_db ?? null])}];
+  if (role === "vhf") series.push({name: "Reference SNR", color: "var(--series-2)", points: sig.map((r) => [r.ts, r.ref_snr_db])});
+  $(".legend", root).innerHTML = series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("");
+  drawChart(root, series, t1 - hours * 3600, t1, "dB");
+}
+
+async function refreshTabRecs(root) {
+  const box = $("[data-recs]", root);
+  if (!box) return;
+  try {
+    const rows = await getJSON("/api/recordings?limit=25&source=" + encodeURIComponent(box.dataset.recs));
+    $("tbody", box).innerHTML = recRowsHTML(rows);
+  } catch (e) { /* the banner reports outages */ }
+}
+
+// EOT and HOT
+function renderTelemetry(name, d) {
+  const root = $("#t-" + name);
+  const units = d.units || [];
+  statTiles(root, [
+    ["Bursts heard", esc(d.total), `airtime ${esc(dur(d.airtime_s))}`],
+    ["Decoded", esc(d.decoded), `${pct(d.decoded, d.total)} of bursts`],
+    ["Units heard", esc(units.length), units.length ? `latest ${esc(units[0].unit_id)}` : ""],
+    ["Last burst", esc(d.last ? ago(d.last) : "none"), d.last ? esc(clock(d.last)) : ""],
+  ]);
+  $('[data-chart="bars"] .title', root).textContent = `Bursts per ${per(d.bucket_s)}`;
+  drawBars($('[data-chart="bars"]', root), d.buckets, d.bucket_s, d.t1, [
+    {name: "decoded", color: "var(--series-1)", value: (b) => b.decoded || 0},
+    {name: "not decoded", color: "var(--series-2)", value: (b) => b.n - (b.decoded || 0)}]);
+  const levels = (d.levels || []).slice().reverse().map((l) => `<tr><td class="mono">${l.lo} to ${l.lo + 9}</td>
+    <td class="num">${l.n}</td><td class="num">${l.decoded}</td><td>${meter(l.decoded, l.n)}</td></tr>`);
+  const bits = (d.corrected_bits || []).map((c) => `<tr><td>${c.bits}</td><td class="num">${c.n}</td><td>${meter(c.n, d.decoded)}</td></tr>`);
+  const urows = units.map((u) => `<tr><td class="mono"><b>${esc(u.unit_id)}</b></td><td class="num">${esc(u.packets)}</td>
+    <td>${esc(clock(u.first))}</td><td>${esc(clock(u.last))} <span class="muted">${esc(ago(u.last))}</span></td>
+    <td class="num">${esc(u.psi ?? "-")}${u.psi_min != null && u.psi_min !== u.psi_max ? ` <span class="muted">(${esc(u.psi_min)} to ${esc(u.psi_max)})</span>` : ""}</td>
+    <td>${u.motion == null ? "-" : u.motion ? "moving" : "stopped"}</td><td>${esc(u.marker_light ?? "-")}</td>
+    <td>${esc(u.battery_condition ?? "-")}</td><td class="num">${esc(u.peak ?? "-")}</td></tr>`);
+  const recent = (d.recent || []).map((ev) => `<tr><td>${esc(clock(ev.start_ts))}</td><td class="num mono">${num(ev.freq, 4)}</td>
+    <td class="num">${ev.end_ts ? num(ev.end_ts - ev.start_ts, 2) + " s" : "-"}</td><td class="num">${esc(ev.peak_rssi ?? "-")}</td>
+    <td>${ev.telemetry ? details(ev) : '<span class="muted">not decoded</span>'}</td></tr>`);
+  $("[data-tables]", root).innerHTML = `<div class="grid two">
+      ${card("Decoding by signal level", "", `<div class="hint" style="margin-bottom:6px">Peak level of each burst, on the events list's scale. Where the decoded share falls off is the edge of reliable reception; gain or the antenna moves it.</div>`
+        + table(["Peak level", ">Bursts", ">Decoded", "Share"], levels, "No bursts in this range."))}
+      ${card("Corrected bits", "", `<div class="hint" style="margin-bottom:6px">Decoded packets by bits the error check fixed. Many corrections mean weak or noisy reception.</div>`
+        + table(["Bits", ">Packets", "Share"], bits, "No decoded packets in this range."))}
+    </div>
+    ${card("Units heard", "newest first", table(["Unit", ">Packets", "First heard", "Last heard", ">Brake pipe psi", "Motion", "Marker light", "Battery", ">Peak"], urows, "No units decoded in this range."))}
+    ${card("Recent bursts", `newest ${(d.recent || []).length}`, table(["Time", ">MHz", ">Length", ">Peak", "Decoded"], recent, "No bursts in this range."))}`;
+}
+
+const OUTCOME = {all_clear: ["good", "✓", "All clear"], defect: ["critical", "!", "Defect"], unconfirmed: ["warning", "?", "Unconfirmed"]};
+function outcomeOf(ev) {
+  const defects = ev.transcript && ev.transcript.parsed ? ev.transcript.parsed.defects : undefined;
+  if (defects === true) return "defect";
+  if (defects === false || (ev.detector && ev.detector.result === "no_defects")) return "all_clear";
+  return "unconfirmed";
+}
+function outcomeTag(o) {
+  const [lvl, icon, label] = OUTCOME[o] || OUTCOME.unconfirmed;
+  return `<span class="status s-${lvl}" data-icon="${icon}">${label}</span>`;
+}
+
+function renderDetector(d) {
+  const root = $("#t-detector");
+  const o = d.outcomes || {};
+  const dets = d.detectors || [];
+  statTiles(root, [
+    ["Announcements", esc(d.total), `airtime ${esc(dur(d.airtime_s))}`],
+    ["All clear", esc(o.all_clear || 0), pct(o.all_clear || 0, d.total)],
+    ["Defects", esc(o.defect || 0), pct(o.defect || 0, d.total)],
+    ["Unconfirmed", esc(o.unconfirmed || 0), `${pct(o.unconfirmed || 0, d.total)}: neither sound nor words settled it`],
+    ["Detectors heard", esc(dets.length), d.last ? `last ${esc(ago(d.last))}` : ""],
+  ]);
+  $('[data-chart="bars"] .title', root).textContent = `Announcements per ${per(d.bucket_s)}`;
+  drawBars($('[data-chart="bars"]', root), d.buckets, d.bucket_s, d.t1, [
+    {name: "all clear", color: "var(--good)", value: (b) => b.all_clear || 0},
+    {name: "defect", color: "var(--critical)", value: (b) => b.defect || 0},
+    {name: "unconfirmed", color: "var(--warning)", value: (b) => b.unconfirmed || 0}]);
+  const drows = dets.map((x) => `<tr><td><b>${esc(x.id)}</b>${x.label ? `<div class="muted">${esc(x.label)}</div>` : ""}</td>
+    <td>${esc(x.railroad || "-")}</td><td class="num">${esc(x.milepost ?? "-")}</td><td class="num">${esc(x.n)}</td>
+    <td>${meter(x.all_clear || 0, x.n)}</td><td class="num">${esc(x.defect || 0)}</td><td class="num">${esc(x.unconfirmed || 0)}</td>
+    <td>${esc(x.method || "-")}</td><td>${esc(ago(x.last))}<div>${outcomeTag(x.last_outcome)}</div></td>
+    <td class="quote">${x.last_text ? `"${esc(x.last_text)}"` : ""}</td></tr>`);
+  const recent = (d.recent || []).map((ev) => {
+    const det = ev.detector || {}, p = (ev.transcript || {}).parsed || {};
+    const name = det.detector_id || p.detector_id || (p.milepost != null ? `${p.railroad || ""} MP ${p.milepost}` : "-");
+    return `<tr><td>${esc(clock(ev.start_ts))}</td><td>${esc(ev.label || "-")}</td><td>${esc(name)}</td><td>${outcomeTag(outcomeOf(ev))}</td>
+      <td class="num">${ev.end_ts ? num(ev.end_ts - ev.start_ts, 1) + " s" : "-"}</td><td class="num">${esc(ev.peak_rssi ?? "-")}</td>
+      <td class="quote">${ev.transcript ? `"${esc(ev.transcript.text)}"` : ""}</td></tr>`;
+  });
+  $("[data-tables]", root).innerHTML = card("Detectors heard", "newest first",
+      `<div class="hint" style="margin-bottom:6px">All clear share per detector. A detector that is often unconfirmed may need a sound template, or its profile's wording checked.</div>`
+      + table(["Detector", "Railroad", ">MP", ">Heard", "All clear", ">Defects", ">Unconfirmed", "Read by", "Last", "Last words"], drows, "No detector announcements in this range."))
+    + card("Recent announcements", `newest ${(d.recent || []).length}`, table(["Time", "Channel", "Detector", "Result", ">Length", ">Peak", "Words"], recent, "No announcements in this range."));
+}
+
+function renderVoice(d) {
+  const root = $("#t-voice");
+  const chans = (d.channels || []).slice().sort((a, b) => b.n - a.n);
+  const src = d.by_source || {};
+  statTiles(root, [
+    ["Calls", esc(d.total), d.last ? `last ${esc(ago(d.last))}` : ""],
+    ["Airtime", esc(dur(d.airtime_s)), ""],
+    ["Transcribed", esc(d.transcribed || 0), pct(d.transcribed || 0, d.total)],
+    ["Busiest channel", esc(chans.length ? chans[0].label || num(chans[0].freq, 4) : "-"), chans.length ? `${chans[0].n} calls` : ""],
+    ["From the scanner", esc(src.scanner || 0), `${esc(src.sdr || 0)} from the VHF dongle`],
+  ]);
+  $('[data-chart="bars"] .title', root).textContent = `Calls per ${per(d.bucket_s)}`;
+  drawBars($('[data-chart="bars"]', root), d.buckets, d.bucket_s, d.t1, [
+    {name: "transcribed", color: "var(--series-1)", value: (b) => b.transcribed || 0},
+    {name: "not transcribed", color: "var(--series-2)", value: (b) => b.n - (b.transcribed || 0)}]);
+  const crow = chans.map((c) => `<tr><td>${esc(c.label || "-")}</td><td class="num mono">${num(c.freq, 4)}</td><td class="num">${c.n}</td>
+    <td class="num">${esc(dur(c.airtime_s))}</td><td class="num">${esc(c.peak_avg ?? "-")}</td><td class="num">${esc(c.peak_max ?? "-")}</td></tr>`);
+  const recent = (d.recent || []).map((ev) => `<tr><td>${esc(clock(ev.start_ts))}</td><td>${esc(ev.label || "-")}</td>
+    <td class="num mono">${num(ev.freq, 4)}</td><td class="num">${ev.end_ts ? num(ev.end_ts - ev.start_ts, 1) + " s" : "-"}</td>
+    <td class="num">${esc(ev.peak_rssi ?? "-")}</td><td>${esc(ev.source || "sdr")}</td><td>${details(ev)}</td></tr>`);
+  $("[data-tables]", root).innerHTML = card("Channels", "busiest first", table(["Channel", ">MHz", ">Calls", ">Airtime", ">Avg peak", ">Max peak"], crow, "No calls in this range."))
+    + card("Recent calls", `newest ${(d.recent || []).length}`, table(["Time", "Channel", ">MHz", ">Length", ">Peak", "From", "Details"], recent, "No calls in this range."));
+}
+
+function codeBadges(codes, prev) {
+  return `<span class="codes">${(codes || []).map((c, i) => `<span class="code${prev && prev[i] !== c ? " chg" : ""}" title="${esc(ITC_CODES[c] || "not named yet")}">${esc(c)}</span>`).join("")}</span>`;
+}
+
+function renderItc(d) {
+  const root = $("#t-itc");
+  const live = d.live, st = live ? live.status : null;
+  const lunits = new Map(((live && live.units) || []).map((u) => [u.wiu, u]));
+  const runits = new Map((d.units || []).map((u) => [u.wiu, u]));
+  const ids = [...new Set([...lunits.keys(), ...runits.keys()])];
+  statTiles(root, [
+    ["State changes", esc(d.changes), "in this range"],
+    ["Wayside units", esc(ids.length), `${esc(runits.size)} changed in this range`],
+    ["Base stations", esc(st ? (st.bases || []).length : "-"), st ? `channels ${esc((st.channels || []).join(", "))}` : "no ITC dongle running"],
+    ["Messages", esc(st ? st.messages : "-"), "since the receiver started"],
+    ["Last message", esc(st && st.last_message ? ago(st.last_message) : "none"), st && st.last_message ? esc(clock(st.last_message)) : ""],
+  ]);
+  $('[data-chart="bars"] .title', root).textContent = `Wayside state changes per ${per(d.bucket_s)}`;
+  drawBars($('[data-chart="bars"]', root), d.buckets, d.bucket_s, d.t1, [{name: "state changes", color: "var(--series-1)", value: (b) => b.n}]);
+  const types = st ? Object.entries(st.by_type || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<tr><td>${esc(k)}</td><td class="num">${n}</td><td>${meter(n, st.messages)}</td></tr>`) : [];
+  const bases = st ? (st.bases || []).map((b) => `<tr><td class="mono">${esc(b.radio)}</td><td class="num">${esc(b.local_channel)}</td>
+    <td class="num">${num(b.level_db)}</td><td>${esc(ago(b.last))}</td></tr>`) : [];
+  const urows = ids.map((w) => {
+    const l = lunits.get(w) || {}, r = runits.get(w) || {};
+    return {w, l, r, last: Math.max(l.last || 0, r.last || 0)};
+  }).sort((a, b) => b.last - a.last).map(({w, l, r, last}) => `<tr><td class="mono">${esc(w)}</td><td>${l.codes ? codeBadges(l.codes) : '<span class="muted">-</span>'}</td>
+    <td class="num">${r.changes || 0}</td><td class="num">${l.changes ?? "-"}</td><td class="num">${l.messages ?? "-"}</td>
+    <td class="num">${l.level_db != null ? num(l.level_db) : "-"}</td><td class="num">${esc(l.ch ?? "-")}</td><td>${esc(ago(last))}</td></tr>`);
+  const recent = (d.recent || []).map((c) => `<tr><td>${esc(clock(c.t))}</td><td class="mono">${esc(c.wiu)}</td>
+    <td>${c.first ? '<span class="tag">first heard</span>' : codeBadges(c.previous_codes)}</td><td>${codeBadges(c.codes, c.first ? null : c.previous_codes)}</td>
+    <td>${esc(c.first ? "" : (c.codes || []).map((x, i) => (c.previous_codes || [])[i] !== x ? i + 1 : 0).filter(Boolean).join(", "))}</td>
+    <td class="num">${num(c.level_db)}</td><td class="num">${esc(c.channel ?? c.ch)}</td></tr>`);
+  const legend = Object.entries(ITC_CODES).map(([k, v]) => `<span class="code">${k}</span> ${esc(v)}`).join(" &nbsp; ");
+  const rail = railCards(d);
+  const chans = live ? (live.channels || []).map((c) => `<tr><td>${esc(c.ch)}</td><td class="num">${c.n}</td><td>${meter(c.n, st.messages)}</td></tr>`) : [];
+  const rx = live ? `<dl class="kv">
+      <dt>Decoding</dt><dd>${live.connected ? '<span class="status s-good" data-icon="✓">running</span>' : '<span class="status s-serious" data-icon="!">dongle not streaming</span>'}</dd>
+      <dt>Channels</dt><dd>${esc((st.channels || []).join(", "))}</dd>
+      <dt>Upload</dt><dd>${st.upload ? "on: state changes and base stations go to the headend" : "off: nothing goes to the headend"}</dd>
+      <dt>Feed</dt><dd class="mono">${esc(st.feed || "off")}</dd>
+      <dt>Message log</dt><dd class="mono">${esc(st.log_dir || "")}</dd>
+      ${st.error ? `<dt>Error</dt><dd>${esc(st.error)}</dd>` : ""}</dl>` : '<div class="muted">No ITC dongle is running. State changes saved earlier still show below.</div>';
+  $("[data-tables]", root).innerHTML = rail.html + `<div class="grid two">
+      ${card("ITC receiver", "", rx + (bases.length ? `<h2 style="margin-top:14px">Base stations</h2>` + table(["Base", ">Local channel", ">Level dB", "Last heard"], bases, "") : ""))}
+      ${card("Messages", "since the receiver started", table(["Type", ">Messages", "Share"], types, "No messages yet.")
+        + (chans.length ? `<h2 style="margin-top:14px">By channel</h2>` + table(["Channel", ">Messages", "Share"], chans, "") : "")
+        + (live && (live.gaps || []).length ? `<div class="hint" style="margin-top:8px">${live.gaps.length} gap${live.gaps.length === 1 ? "" : "s"} in reception (20 s or more with no message), the latest ${esc(ago(live.gaps[live.gaps.length - 1][1]))}.</div>` : ""))}
+    </div>
+    ${card("Wayside units", "latest first", `<div class="hint" style="margin-bottom:6px">Device codes, one per signal or device: ${legend}. Hover a code for its meaning.</div>`
+      + table(["Unit", "Codes now", ">Changes (range)", ">Changes (since start)", ">Messages", ">Level dB", ">Ch", "Last heard"], urows, "No wayside units heard in this range."))}
+    ${card("Recent state changes", `newest ${(d.recent || []).length}`, table(["Time", "Unit", "Before", "After", "Changed", ">Level dB", ">Ch"], recent, "No state changes in this range."))}`;
+  rail.draw(root);
+}
+
+// ITC rail layout --------------------------------------------------------------------------
+// Ideas from RailSpotting-ITC-Monitor, without its map: each proceed-to-stop change is a train
+// reaching a signal, drops close together are one train, and the order trains drop them is the
+// order of the signals along the line. Numbered twins (one above or below) share a place.
+
+const PROCEED = new Set([2, 3, 5, 6, 8]);
+const STOP = new Set([13, 15]);
+const MOVE_GAP_S = 720;   // drops further apart than this belong to different trains
+const REVISIT_S = 600;    // a train back at a signal it dropped this long ago is another train
+const RECENT_S = 300;     // a field changed this recently is highlighted
+
+function aspectColor(c) {
+  return c === 3 ? "var(--good)" : PROCEED.has(c) ? "var(--warning)" : STOP.has(c) ? "var(--critical)" : "var(--muted)";
+}
+function codeName(c) {
+  return ITC_CODES[c] ? `${c} ${ITC_CODES[c]}` : `${c}`;
+}
+
+// each unit's fields over time, [[t, code], ...] at every change, from the changes in range
+function fieldHistories(history) {
+  const units = new Map();
+  for (const [t, w, codes] of history.slice().sort((a, b) => a[0] - b[0])) {
+    const u = units.get(w) || {wiu: w, fields: [], last: t};
+    (codes || []).forEach((c, f) => {
+      const h = u.fields[f] || (u.fields[f] = []);
+      if (!h.length || h[h.length - 1][1] !== c) h.push([t, c]);
+    });
+    u.last = t;
+    units.set(w, u);
+  }
+  return units;
+}
+
+// twin units, numbered one apart, are the two directions at one location. Pairs come from the
+// units heard; in a run of three or more, the parity most pairs use decides.
+function pairUnits(all) {
+  const groups = new Map();
+  for (const w of all) {
+    const g = groups.get(w.slice(0, 6)) || [];
+    g.push(parseInt(w.slice(6), 16));
+    groups.set(w.slice(0, 6), g);
+  }
+  const locOf = new Map();
+  const runs = [];
+  for (const [grp, nums] of groups) {
+    nums.sort((a, b) => a - b);
+    let run = [nums[0]];
+    for (let k = 1; k <= nums.length; k++) {
+      if (k < nums.length && nums[k] === run[run.length - 1] + 1) { run.push(nums[k]); continue; }
+      runs.push({grp, run});
+      run = [nums[k]];
+    }
+  }
+  const odd = runs.filter((r) => r.run.length === 2 && r.run[0] % 2 === 1).length;
+  const even = runs.filter((r) => r.run.length === 2 && r.run[0] % 2 === 0).length;
+  const parity = odd >= even ? 1 : 0;
+  const id = (grp, n) => grp + n.toString(16).padStart(4, "0");
+  for (const {grp, run} of runs) {
+    let k = 0;
+    if (run.length > 2 && run[0] % 2 !== parity) { locOf.set(id(grp, run[0]), id(grp, run[0])); k = 1; }
+    for (; k < run.length; k += 2) {
+      const key = id(grp, run[k]);
+      locOf.set(key, key);
+      if (k + 1 < run.length) locOf.set(id(grp, run[k + 1]), key);
+    }
+  }
+  return locOf;
+}
+
+// the order of locations along the line, from the order trains drop their signals to stop
+function lineOrder(units, locOf, gaps) {
+  const afterGap = (t) => (gaps || []).some(([, b]) => t >= b && t - b < 30);
+  const drops = [];
+  for (const u of units.values()) {
+    u.fields.forEach((h, f) => {
+      for (let k = 1; k < h.length; k++) {
+        // a proceed lasting only seconds is a flicker, not a signal a train passed
+        if (PROCEED.has(h[k - 1][1]) && STOP.has(h[k][1]) && h[k][0] - h[k - 1][0] >= 10 && !afterGap(h[k][0])) {
+          drops.push({t: h[k][0], u: u.wiu, f, loc: locOf.get(u.wiu) || u.wiu});
+        }
+      }
+    });
+  }
+  drops.sort((a, b) => a.t - b.t);
+  const moves = [];
+  let cur = null;
+  for (const d of drops) {
+    // a train does not come back to a location it passed long before: that is another train
+    const revisit = cur && cur.seen.has(d.loc) && d.t - cur.seen.get(d.loc) > REVISIT_S;
+    if (!cur || d.t - cur.last > MOVE_GAP_S || revisit) { cur = {seq: [], last: d.t, seen: new Map()}; moves.push(cur); }
+    if (!cur.seq.includes(d.loc)) cur.seq.push(d.loc);
+    if (!cur.seen.has(d.loc)) cur.seen.set(d.loc, d.t);
+    cur.last = d.t;
+  }
+  // a train going the other way passes them in reverse: turn each to agree with what is known
+  const votes = new Map();
+  const v = (a, b) => votes.get(a + ">" + b) || 0;
+  const passes = moves.filter((m) => m.seq.length > 1).sort((a, b) => b.seq.length - a.seq.length);
+  for (const m of passes) {
+    let agree = 0, against = 0;
+    for (let i = 0; i < m.seq.length; i++) for (let j = i + 1; j < m.seq.length; j++) { agree += v(m.seq[i], m.seq[j]); against += v(m.seq[j], m.seq[i]); }
+    const seq = against > agree ? m.seq.slice().reverse() : m.seq;
+    for (let i = 0; i < seq.length; i++) for (let j = i + 1; j < seq.length; j++) votes.set(seq[i] + ">" + seq[j], v(seq[i], seq[j]) + 1);
+  }
+  const placed = [...new Set(passes.flatMap((m) => m.seq))];
+  const score = (u) => placed.reduce((s, o) => s + Math.sign(v(u, o) - v(o, u)), 0);
+  placed.sort((a, b) => score(b) - score(a));
+  return {placed, trains: passes.length};
+}
+
+// signal locations along the line (each its units), and the units at no placed location
+function locations(placed, all, locOf) {
+  const at = new Map(placed.map((l) => [l, []]));
+  const unplaced = [];
+  for (const w of all) {
+    const l = locOf.get(w) || w;
+    if (at.has(l)) at.get(l).push(w); else unplaced.push(w);
+  }
+  return {locs: placed.map((l) => at.get(l).sort()), unplaced};
+}
+
+function svgEl(parent, tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  parent.appendChild(e);
+  return e;
+}
+
+// the current state of a unit: from the live receiver when it runs, else the last change
+function unitNow(w, hist, live) {
+  const l = live.get(w), h = hist.get(w);
+  const codes = l ? l.codes : h ? h.fields.map((f) => f[f.length - 1][1]) : [];
+  const changedAt = codes.map((_, f) => {
+    const fh = h && h.fields[f];
+    return fh && fh.length > 1 ? fh[fh.length - 1][0] : 0;
+  });
+  const varies = codes.map((_, f) => !!(h && h.fields[f] && h.fields[f].length > 1));
+  return {codes, changedAt, varies, last: Math.max(l ? l.last : 0, h ? h.last : 0), l};
+}
+
+function drawRail(box, locs, hist, live, rangeUnits) {
+  const sx = 120, pad = 70, H = 250, mid = 125;
+  const W = Math.max(box.clientWidth || 600, pad * 2 + Math.max(0, locs.length - 1) * sx);
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", H);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Wayside signal locations along the line, in the order trains pass them");
+  const x0 = pad, x1 = W - pad;
+  // the track: ties, then two rails
+  for (let x = 10; x < W - 10; x += 14) svgEl(svg, "line", {x1: x, x2: x, y1: mid - 7, y2: mid + 7, stroke: "var(--grid)", "stroke-width": 3});
+  for (const dy of [-4, 4]) svgEl(svg, "line", {x1: 6, x2: W - 6, y1: mid + dy, y2: mid + dy, stroke: "var(--text-2)", "stroke-width": 1.5});
+  const nowT = now;
+  locs.forEach((loc, i) => {
+    const x = locs.length === 1 ? W / 2 : x0 + i * (x1 - x0) / (locs.length - 1);
+    svgEl(svg, "circle", {cx: x, cy: mid, r: 3, fill: "var(--text-2)"});
+    loc.slice(0, 2).forEach((w, k) => {
+      const up = k === 0, dir = up ? -1 : 1;
+      const st = unitNow(w, hist, live);
+      const fields = st.codes.map((c, f) => ({c, f})).filter((x) => st.varies[x.f]);
+      const show = fields.length ? fields : st.codes.slice(0, 1).map((c) => ({c, f: 0}));
+      const top = mid + dir * 16, headY = (j) => mid + dir * (34 + j * 15);
+      svgEl(svg, "line", {x1: x, x2: x, y1: top, y2: headY(show.length - 1), stroke: "var(--text-2)", "stroke-width": 2});
+      show.forEach(({c, f}, j) => {
+        const recent = st.changedAt[f] && nowT - st.changedAt[f] < RECENT_S;
+        const head = svgEl(svg, "circle", {cx: x + 9, cy: headY(j), r: 6, fill: aspectColor(c),
+          stroke: recent ? "var(--accent)" : "var(--surface)", "stroke-width": recent ? 3 : 1.5});
+        svgEl(head, "title", {}, `${w} field ${f + 1}: ${codeName(c)}${st.changedAt[f] ? `, changed ${ago(st.changedAt[f])}` : ", not seen to change"}`);
+        svgEl(svg, "line", {x1: x, x2: x + 3, y1: headY(j), y2: headY(j), stroke: "var(--text-2)", "stroke-width": 2});
+      });
+      const ly = headY(show.length - 1) + dir * 18;
+      const r = rangeUnits.get(w);
+      svgEl(svg, "text", {x, y: ly + (up ? 0 : 4), "text-anchor": "middle", class: "rail-id"}, w.slice(6));
+      svgEl(svg, "text", {x, y: ly + dir * 13 + (up ? 0 : 4), "text-anchor": "middle", class: "rail-sub"},
+        `${r ? r.changes : 0} chg, ${st.last ? ago(st.last).replace(" ago", "") : "-"}`);
+    });
+  });
+  if (!locs.length) svgEl(svg, "text", {x: W / 2, y: mid - 20, "text-anchor": "middle", class: "empty"}, "No signal locations placed yet: they appear once trains are seen passing units in order");
+  box.replaceChildren(svg);
+}
+
+function drawAspects(box, order, hist, t0, t1, gaps) {
+  const rows = [];
+  for (const w of order) {
+    const h = hist.get(w);
+    if (!h) continue;
+    h.fields.forEach((fh, f) => { if (fh.length > 1) rows.push({w, f, fh, last: h.last}); });
+  }
+  if (!rows.length) { box.innerHTML = '<div class="muted">No signal changes in this range.</div>'; return; }
+  const W = Math.max(box.clientWidth || 600, 360), L = 92, R = 10, top = 4, rh = 15;
+  const H = top + rows.length * rh + 22;
+  const x = (t) => L + (Math.min(Math.max(t, t0), t1) - t0) / (t1 - t0) * (W - L - R);
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("width", "100%");
+  svg.setAttribute("height", H);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Signal aspects over time, in line order");
+  const {ticks, daily} = timeTicks(t0, t1);
+  for (const t of ticks) {
+    svgEl(svg, "line", {x1: x(t), x2: x(t), y1: top, y2: H - 18, class: "gridline"});
+    const d = new Date(t * 1000);
+    svgEl(svg, "text", {x: x(t), y: H - 5, "text-anchor": "middle", class: "rail-sub"},
+      daily ? d.toLocaleDateString([], {month: "short", day: "numeric"}) : d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}));
+  }
+  rows.forEach((r, i) => {
+    const y = top + i * rh;
+    svgEl(svg, "text", {x: L - 6, y: y + 11, "text-anchor": "end", class: "rail-sub"}, `${r.w.slice(6)} f${r.f + 1}`);
+    for (let k = 0; k < r.fh.length; k++) {
+      const a = r.fh[k][0], b = k + 1 < r.fh.length ? r.fh[k + 1][0] : t1;
+      if (b < t0 || a > t1) continue;
+      const rect = svgEl(svg, "rect", {x: x(a), y: y + 2, width: Math.max(1, x(b) - x(a) - 0.5), height: rh - 4, rx: 2, fill: aspectColor(r.fh[k][1])});
+      svgEl(rect, "title", {}, `${r.w} field ${r.f + 1}: ${codeName(r.fh[k][1])} from ${clock(a)}`);
+    }
+  });
+  for (const [a, b] of gaps || []) {
+    if (b < t0 || a > t1) continue;
+    const g = svgEl(svg, "rect", {x: x(a), y: top, width: Math.max(1, x(b) - x(a)), height: rows.length * rh, fill: "var(--muted)", opacity: 0.25});
+    svgEl(g, "title", {}, `no reception ${clock(a)} to ${clock(b)}`);
+  }
+  box.replaceChildren(svg);
+}
+
+function railCards(d) {
+  const live = d.live;
+  const liveUnits = new Map(((live && live.units) || []).map((u) => [u.wiu, u]));
+  const rangeUnits = new Map((d.units || []).map((u) => [u.wiu, u]));
+  const hist = fieldHistories(d.history || []);
+  const gaps = live ? live.gaps : [];
+  const all = [...new Set([...hist.keys(), ...liveUnits.keys()])].sort();
+  const locOf = pairUnits(all);
+  const {placed, trains} = lineOrder(hist, locOf, gaps);
+  const {locs, unplaced} = locations(placed, all, locOf);
+  const order = locs.flat().concat(unplaced);
+  const legend = [[3, "clear"], [8, "proceed (approach, medium)"], [15, "stop"], [0, "other code"]]
+    .map(([c, n]) => `<span><i style="background:${aspectColor(c)};width:10px;height:10px;border-radius:50%"></i>${n}</span>`).join("");
+  const loose = unplaced.map((w) => {
+    const st = unitNow(w, hist, liveUnits);
+    return `<span class="panel" style="display:inline-block;padding:6px 8px;margin:0 6px 6px 0"><span class="mono">${esc(w.slice(6))}</span>
+      ${codeBadges(st.codes)} <span class="muted">${esc(st.last ? ago(st.last) : "")}</span></span>`;
+  }).join("");
+  return {
+    html: card("Rail layout", `${locs.length} locations from ${trains} train${trains === 1 ? "" : "s"} seen passing`,
+        `<div class="hint" style="margin-bottom:6px">Signal locations in the order trains pass them, worked out from the state changes in this range (as RailSpotting-ITC-Monitor does, without its map). Twin units, numbered one apart, are the two directions at one location. Spacing is not to scale and which end is which is not known. A ring marks a change in the last 5 minutes.</div>
+        <div class="legend">${legend}</div><div class="scroll" data-rail></div>
+        ${unplaced.length ? `<h2 style="margin-top:12px">Not placed yet</h2><div class="hint" style="margin-bottom:6px">No train seen passing these in order yet.</div>${loose}` : ""}`)
+      + card("Aspects over time", "in line order", `<div class="legend">${legend}<span><i style="background:var(--muted);opacity:.4;height:10px"></i>no reception</span></div><div data-aspects></div>`),
+    draw(root) {
+      drawRail($("[data-rail]", root), locs, hist, liveUnits, rangeUnits);
+      drawAspects($("[data-aspects]", root), order, hist, d.t0, d.t1, gaps);
+    },
+  };
+}
+
+async function refreshLogs(topic) {
+  try {
+    logCache[topic] = await getJSON(`/api/logs?topic=${topic}&limit=400`);
+    renderLogs(topic);
+  } catch (e) { /* the banner reports outages */ }
+}
+
+function renderLogs(topic) {
+  const f = ($(`[data-log-filter="${topic}"]`) || {}).value || "";
+  const want = f.trim().toLowerCase();
+  const rows = (logCache[topic] || []).filter((l) => !want || l.text.toLowerCase().includes(want));
+  for (const box of document.querySelectorAll(`[data-logs="${topic}"]`)) {
+    box.innerHTML = rows.map((l) => `<div class="${esc(l.level)}"><span class="tm">${esc(clock(l.t))}</span><span class="lv">${esc(l.level)}</span>${esc(l.text)}</div>`).join("")
+      || '<div class="muted">No log lines yet.</div>';
+  }
+}
+
+const RENDER = {eot: (d) => renderTelemetry("eot", d), hot: (d) => renderTelemetry("hot", d), detector: renderDetector, voice: renderVoice, itc: renderItc};
+
+async function refreshTab() {
+  const name = activeTab;
+  if (name === "status") { refreshLogs("all"); return; }
+  const root = scaffold(name);
+  const h = tabHours[name] || 24;
+  renderTabDongle(name);
+  try {
+    const url = name === "itc" ? `/api/itc?hours=${h}` : `/api/feature?name=${name}&hours=${h}`;
+    const [data, sig] = await Promise.all([getJSON(url), getJSON("/api/signal?hours=" + h)]);
+    if (activeTab !== name) return;
+    RENDER[name](data);
+    renderFloor(name, sig, h);
+  } catch (e) { /* the banner reports outages */ }
+  refreshTabRecs(root);
+  refreshLogs(name);
+}
+
+$("#tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-tab]");
+  if (b) openTab(b.dataset.tab, true);
+});
+window.addEventListener("hashchange", () => openTab(location.hash.slice(1), false));
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-range] button");
+  if (!b) return;
+  const name = b.parentElement.dataset.range;
+  tabHours[name] = +b.dataset.h;
+  for (const x of b.parentElement.children) x.setAttribute("aria-pressed", x === b ? "true" : "false");
+  refreshTab();
+});
+document.addEventListener("input", (e) => {
+  const t = e.target.dataset && e.target.dataset.logFilter;
+  if (t) renderLogs(t);
+});
+
 let resizeTimer;
-window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderSignal, 150); });
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (activeTab === "status") renderSignal(); else refreshTab(); }, 150);
+});
 
 initSettings(); refreshStatus(); refreshEvents(); refreshSignal(); refreshRecordings();
+openTab(location.hash.slice(1), false);
 setInterval(refreshStatus, 2000);
-setInterval(refreshEvents, 10000);
-setInterval(refreshSignal, 60000);
-setInterval(refreshRecordings, 60000);
+// the status tab's lists, and the open feature tab's numbers, only while shown
+setInterval(() => { if (activeTab === "status") refreshEvents(); }, 10000);
+setInterval(() => { if (activeTab === "status") { refreshSignal(); refreshRecordings(); } }, 60000);
+setInterval(() => { if (activeTab !== "status" && activeTab !== "itc") refreshTab(); }, 30000);
+setInterval(() => { if (activeTab === "itc") refreshTab(); }, 10000);
+setInterval(() => refreshLogs(activeTab === "status" ? "all" : activeTab), 10000);
 </script>
 </body>
 </html>

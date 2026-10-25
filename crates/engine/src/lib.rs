@@ -6,12 +6,15 @@
 
 pub mod agent;
 pub mod cli;
+#[cfg(unix)]
+pub mod control;
 pub mod device;
 pub mod handle;
 pub mod itc;
 pub mod logging;
 pub mod models;
 pub mod rtl;
+pub mod stats;
 pub mod transcribe;
 pub mod util;
 pub mod wav;

@@ -46,13 +46,18 @@ fn start(tmp: &Path, h: &railspotting_proto::fake::FakeHeadend, token: Option<&s
     let path = tmp.join("receiver.json");
     std::fs::write(&path, serde_json::to_string_pretty(&file).unwrap()).unwrap();
     let settings = Settings::load(&path).unwrap();
+    // the headend knows the key before the receiver starts: its first check can come at once, and
+    // an unknown device would make it forget its ID and link again (the clock is fake, so it
+    // would never check again)
+    let key = keys::load_or_create_key(&settings.credentials_path(), false).unwrap();
+    h.add_device(DEVICE_ID, &keys::public_bytes(&key), "approved");
     let opts = EngineOptions {
         agent: AgentOptions { simulate: true, ..Default::default() },
         token: token.map(str::to_string),
+        control: Some(state.join("control.sock")),
     };
     let engine = Engine::start(settings, opts).expect("engine starts");
-    let agent = engine.agent().unwrap();
-    h.add_device(DEVICE_ID, &keys::public_bytes(&agent.key), "approved");
+    assert_eq!(keys::public_bytes(&engine.agent().unwrap().key), keys::public_bytes(&key), "the receiver uses that key");
     engine
 }
 
@@ -164,6 +169,42 @@ fn receiver_json_is_edited_whole_and_put_back_when_it_fails() {
     assert!(engine.agent().is_some());
     assert_eq!(engine.settings().str("label"), Some("Whole"));
     engine.stop();
+}
+
+#[test]
+fn the_console_changes_settings_over_the_socket() {
+    use railspotting_console::client::Client;
+    let (c, t) = (clock(), Tmp::new("handle5"));
+    let h = headend(&c);
+    // no token: the page is read only, and the console still works
+    let engine = start(t.path(), &h, None);
+    let sock = engine.control_path().expect("console socket");
+    let mut con = Client::new(&sock);
+    assert_eq!(con.call("GET", "/api/status", None).unwrap()["device_id"], DEVICE_ID);
+    assert_eq!(con.call("GET", "/api/settings", None).unwrap()["label"], "before");
+    assert!(con.call("GET", "/", None).unwrap_err().contains("not offered"));
+
+    // a change restarts the agent; the same connection carries on
+    let first = engine.agent().unwrap();
+    let got = con.call("POST", "/api/settings", Some(json!({"label": "Console", "sdr": {"role_order": ["vhf", "eot"]}}))).unwrap();
+    assert_eq!(got["label"], "Console");
+    assert!(!std::sync::Arc::ptr_eq(&first, &engine.agent().unwrap()));
+    let saved = read_json(&t.path().join("receiver.json"));
+    assert_eq!(saved["label"], "Console");
+    assert_eq!(saved["sdr"]["role_order"], json!(["vhf", "eot"]));
+    assert!(con.call("POST", "/api/settings", Some(json!({"server_url": "https://example.com"}))).unwrap_err().contains("server_url"));
+
+    // the whole file: a bad one is refused and the old one stays
+    let text = con.call("GET", "/api/config-file", None).unwrap()["text"].as_str().unwrap().to_string();
+    let mut broken: Value = serde_json::from_str(&text).unwrap();
+    broken["state_dir"] = json!(t.path().join("receiver.json").join("state"));
+    assert!(con.call("POST", "/api/config-file", Some(json!({"text": broken.to_string()}))).is_err());
+    assert_eq!(std::fs::read_to_string(t.path().join("receiver.json")).unwrap(), text);
+    assert_eq!(con.call("GET", "/api/settings", None).unwrap()["label"], "Console");
+
+    engine.stop();
+    assert!(!sock.exists(), "the socket goes with the receiver");
+    assert!(Client::new(&sock).call("GET", "/api/status", None).unwrap_err().contains("not running"));
 }
 
 #[test]

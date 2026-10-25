@@ -30,7 +30,7 @@ const TAB_BAR_H: f64 = 48.0;
 /// top of the frame, under the title bar, and reports the same inner and outer size.
 const TITLE_BAR_H: f64 = 28.0;
 
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+pub(crate) fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|p| p.into_inner())
 }
 
@@ -42,10 +42,14 @@ pub struct Core {
     engine: Mutex<Option<Engine>>,
     ctx: Mutex<Ctx>,
     status: Mutex<Option<Value>>,
-    tray: Mutex<Option<TrayUi>>,
+    pub(crate) tray: Mutex<Option<TrayUi>>,
     tab: Mutex<Tab>,
-    quitting: AtomicBool,
+    pub(crate) quitting: AtomicBool,
     cancel_download: AtomicBool,
+    /// An update found by `update`, waiting to be installed from the menu.
+    pub(crate) update: Mutex<Option<tauri_plugin_updater::Update>>,
+    /// An update is downloading or installing.
+    pub(crate) updating: AtomicBool,
 }
 
 impl Core {
@@ -87,7 +91,7 @@ fn start_engine(app: &AppHandle, core: &Arc<Core>) {
     if librtlsdr_missing {
         log::warn!("librtlsdr not found; install it with: brew install librtlsdr");
     }
-    let opts = EngineOptions { agent: AgentOptions::default(), token: Some(core.token.clone()) };
+    let opts = EngineOptions { agent: AgentOptions::default(), token: Some(core.token.clone()), control: None };
     match Engine::start(settings, opts) {
         Ok(engine) => {
             let rx = engine.subscribe();
@@ -124,7 +128,7 @@ fn start_engine(app: &AppHandle, core: &Arc<Core>) {
     }
 }
 
-fn stop_engine(core: &Core) {
+pub(crate) fn stop_engine(core: &Core) {
     let engine = lock(&core.engine).take();
     if let Some(e) = engine {
         e.stop();
@@ -428,6 +432,8 @@ pub fn run() {
         tab: Mutex::new(Tab::Receiver),
         quitting: AtomicBool::new(false),
         cancel_download: AtomicBool::new(false),
+        update: Mutex::new(None),
+        updating: AtomicBool::new(false),
     });
 
     let single = core.clone();
@@ -436,6 +442,7 @@ pub fn run() {
         // a second launch opens the window of the first; with --live-map, on that tab
         .plugin(tauri_plugin_single_instance::init(move |app, args, _| show_window(app, &single, tab_arg(&args))))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup({
             let core = core.clone();
             move |app| {
@@ -454,11 +461,13 @@ pub fn run() {
                     }
                     tray::PAUSE => toggle_pause(app, &menu_core),
                     tray::LOGIN => toggle_login(app, &menu_core),
+                    tray::UPDATES => crate::update::on_menu(app, &menu_core),
                     tray::QUIT => quit(app, &menu_core),
                     _ => {}
                 });
                 start_engine(&handle, &core);
                 ensure_model(&handle, &core);
+                crate::update::start(&handle, &core);
                 let args: Vec<String> = std::env::args().collect();
                 show_window(&handle, &core, Some(tab_arg(&args).unwrap_or(Tab::Receiver)));
                 Ok(())

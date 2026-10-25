@@ -38,6 +38,13 @@ chown -R "$USER_NAME:$USER_NAME" "$APP"
 chmod 0750 "$APP"
 [[ -f "$APP/credentials.json" ]] && chmod 0600 "$APP/credentials.json"
 
+# a short name for the console (status, events and settings of the running receiver)
+cat > /usr/local/bin/railspotting-console <<EOF
+#!/bin/sh
+exec $APP/bin/railspotting-receiver --config $APP/receiver.json console "\$@"
+EOF
+chmod 0755 /usr/local/bin/railspotting-console
+
 echo "== 5. Service"
 install -m 0644 "$SRC/packaging/linux/railspotting-receiver.service" /etc/systemd/system/railspotting-receiver.service
 systemctl daemon-reload
@@ -45,3 +52,5 @@ systemctl enable railspotting-receiver
 systemctl restart railspotting-receiver
 sleep 8
 runuser -u "$USER_NAME" -- "$APP/bin/railspotting-receiver" --config "$APP/receiver.json" status || true
+echo
+echo "The console: sudo railspotting-console (or join the $USER_NAME group to use it without sudo)."

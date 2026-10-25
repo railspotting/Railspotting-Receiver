@@ -1,0 +1,17 @@
+[package]
+name = "railspotting-console"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "The receiver's local console: a terminal screen over the running receiver's control socket"
+
+[lib]
+name = "railspotting_console"
+path = "src/lib.rs"
+
+[dependencies]
+libc = "0.2.190"
+ratatui = "0.29.0"
+serde_json = { version = "1.0.154", features = ["preserve_order", "float_roundtrip"] }

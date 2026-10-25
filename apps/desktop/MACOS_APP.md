@@ -276,8 +276,22 @@ Update this section as phases complete: what was done, what was measured, what i
     HOT) in the fixed dongle rows, and an editor for the whole receiver.json
     (`GET`/`POST /api/config-file`, same token gate). A file must be a JSON object that loads as
     settings; when the receiver won't start with it, the old file is put back.
+  - Done: the dashboard has tabs (Status, EOT, Defect detectors, ITC, HOT, Voice) with numbers
+    over time for tuning; the window shows them as the browser does, and Settings stay on the
+    Status tab.
   - Tested: validation of the new keys, `sdr.assign` replaced whole on save, receiver.json jobs
     with the website winning, and the whole-file round trip with the restore.
   - Left: first-run steps inside the dashboard (librtlsdr Check Again, model progress, dongle
     identification beyond the existing chips), notifications, sleep and wake, and window
-    close and Pause/Resume tested by hand. Check for Updates waits for phase 4.
+    close and Pause/Resume tested by hand.
+- Phase 4: in progress; releases build and publish, without Apple signing yet.
+  - Done: `.github/workflows/release.yml` builds the app on a `v*` tag (`tools/release.sh`) and
+    publishes the `.dmg`, the update bundle signed with the updater key, and `latest.json` to
+    GitHub Releases. The version comes from the tag. The app checks for updates a minute after it
+    starts and every six hours, offers a found one in the menu, and on Install stops the receiver
+    as on Quit and restarts on the new version. See `packaging/macos/README.md`.
+  - Checked: the build on this Mac with the updater key gives the ad-hoc signed app, the `.dmg`,
+    the update bundle and its signature, and `release-files.sh` writes `latest.json`.
+  - Left: a Developer ID certificate and notarization (the Apple secrets; the workflow uses them
+    once set), the Linux binaries in the release, and an update from one release to the next
+    tested on a real install.

@@ -11,6 +11,8 @@ mod here;
 mod site;
 #[cfg(target_os = "macos")]
 mod tray;
+#[cfg(target_os = "macos")]
+mod update;
 
 #[cfg(target_os = "macos")]
 fn main() {

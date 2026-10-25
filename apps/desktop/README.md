@@ -25,6 +25,13 @@ if it runs, then from the repository root:
 The app is not in the workspace's `default-members`, so a plain `cargo build` at the root never
 builds it. On Linux this crate builds an empty binary that says the app is for macOS.
 
+## Installing a release
+
+Download `RailSpotting-<version>-arm64.dmg` from the repository's GitHub Releases, open it and
+drag RailSpotting to Applications. Until releases are notarized, the first open needs System
+Settings, Privacy & Security, **Open Anyway**. The app then updates itself from the menu (Check
+for Updates). How releases are made is in [packaging/macos/README.md](../../packaging/macos/README.md).
+
 ## Where it keeps things
 
 | What | Where |

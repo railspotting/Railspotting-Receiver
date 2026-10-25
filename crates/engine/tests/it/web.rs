@@ -85,6 +85,52 @@ fn routes_read_only_and_port_in_use() {
 }
 
 #[test]
+fn tabs_numbers_itc_changes_and_logs() {
+    let (c, t) = (clock(), Tmp::new("web-tabs"));
+    let h = headend(&c);
+    let agent = make_agent_with(t.path(), Some(&h), Some(&c), json!({"sdr": {"devices": [vhf()]}}), true, Default::default());
+    let route = |path: &str, q: &str| {
+        let (status, _, body) = railspotting_engine::web::route(&agent, path, q);
+        (status, serde_json::from_slice::<Value>(&body).unwrap_or(Value::Null))
+    };
+    let now = c.get();
+    for (id, dt, decoded) in [("t1", -100.0, true), ("t2", -50.0, false)] {
+        let mut ev = json!({"event_id": id, "state": "closed", "start_ts": now + dt, "end_ts": now + dt + 0.2,
+                            "freq": 457.9375, "ch": 9, "kind": "telemetry", "peak_rssi": 240});
+        if decoded {
+            ev["telemetry"] = json!({"unit_id": 12345, "brake_pipe_psi": 88, "motion": false, "corrected_bits": 0});
+        }
+        agent.emit(ev.as_object().unwrap().clone());
+    }
+    let (status, eot) = route("/api/feature", "name=eot&hours=1");
+    assert_eq!(status, 200);
+    assert_eq!((eot["total"].as_u64(), eot["decoded"].as_u64()), (Some(2), Some(1)));
+    assert_eq!(eot["units"][0]["unit_id"], 12345);
+    assert_eq!(route("/api/feature", "name=voice&hours=1").1["total"], 0);
+    assert_eq!(route("/api/feature", "name=nope").0, 400);
+
+    // wayside state changes saved by the ITC receiver, read back with no ITC dongle running
+    let dir = agent.state_dir.join("itc").join("changes");
+    std::fs::create_dir_all(&dir).unwrap();
+    let change = |dt: f64, first: bool| json!({"t": now + dt, "wiu": "1234560ff0", "codes": [3], "first": first}).to_string();
+    let day = railspotting_engine::util::utc_stamp(now, "%Y-%m-%d");
+    std::fs::write(dir.join(format!("{day}.jsonl")), format!("{}\n{}\n", change(-600.0, true), change(-60.0, false))).unwrap();
+    let (status, itc) = route("/api/itc", "hours=1");
+    assert_eq!(status, 200);
+    assert_eq!(itc["changes"], 1, "a first state is not a change");
+    assert_eq!(itc["live"], Value::Null);
+    assert_eq!(itc["units"][0]["wiu"], "1234560ff0");
+    assert_eq!(itc["history"].as_array().unwrap().len(), 2);
+
+    railspotting_engine::logging::setup_for_tests();
+    log::warn!("ITC: a line for the logs test"); // other crates log here from WARNING up
+    let (_, logs) = route("/api/logs", "topic=itc&limit=50");
+    assert!(logs.as_array().unwrap().iter().any(|l| l["text"] == "ITC: a line for the logs test"), "{logs}");
+    let (_, eot_logs) = route("/api/logs", "topic=eot&limit=50");
+    assert!(!eot_logs.as_array().unwrap().iter().any(|l| l["text"] == "ITC: a line for the logs test"));
+}
+
+#[test]
 fn link_qr_only_while_waiting() {
     let (c, t) = (clock(), Tmp::new("web2"));
     let h = headend(&c);

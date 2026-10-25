@@ -39,7 +39,10 @@ sudo bash packaging/linux/install.sh
 
   Running it again later updates the program and keeps settings, identity and history.
 - Logs: `journalctl -u railspotting-receiver -f`. Status: `railspotting-receiver status`, or the
-  status page at `http://<machine>:8080/`.
+  status page at `http://<machine>:8080/` (read only).
+- Settings and live status on the machine itself: `sudo railspotting-console`, a terminal screen
+  with the link code, the dongles, recent events and the settings (role order, a job for each
+  dongle, and the whole `receiver.json` in your editor).
 
 Then **link it**: the log and the status page show a link code. Enter it at
 [railspotting.com/link](https://railspotting.com/link) (see [How reports reach RailSpotting]({{ '/reporting/' | relative_url }})).
