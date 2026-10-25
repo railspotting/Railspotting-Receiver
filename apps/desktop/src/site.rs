@@ -125,6 +125,38 @@ pub fn new_window_from_live_map(url: &Url) -> Route {
     web(url)
 }
 
+/// Where a download from the dashboard goes, as a browser would put it: the Downloads folder,
+/// under the page's suggested name (else the address's last part), with " (2)", " (3)" and so on
+/// before the extension when the name is taken. None for a download from anywhere else.
+pub fn download_path(url: &Url, dashboard_port: Option<u16>, suggested: &std::path::Path, downloads: &std::path::Path,
+                     exists: &dyn Fn(&std::path::Path) -> bool) -> Option<std::path::PathBuf> {
+    if from_dashboard(url, dashboard_port) != Route::Stay || url.scheme() != "http" {
+        return None;
+    }
+    let clean = |s: &str| -> String {
+        let s: String = s.chars().map(|c| if c == '/' || c == '\\' || c == ':' || c.is_control() { '_' } else { c }).collect();
+        s.trim_start_matches('.').trim().to_string()
+    };
+    let mut name = suggested.file_name().map(|n| clean(&n.to_string_lossy())).unwrap_or_default();
+    if name.is_empty() {
+        name = clean(url.path_segments().and_then(|mut s| s.next_back()).unwrap_or(""));
+    }
+    if name.is_empty() {
+        name = "download".into();
+    }
+    let (stem, ext) = match name.rfind('.') {
+        Some(i) if i > 0 => (name[..i].to_string(), name[i..].to_string()),
+        _ => (name.clone(), String::new()),
+    };
+    let mut path = downloads.join(&name);
+    let mut n = 2;
+    while exists(&path) {
+        path = downloads.join(format!("{stem} ({n}){ext}"));
+        n += 1;
+    }
+    Some(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,6 +201,28 @@ mod tests {
         assert_eq!(from_dashboard(&u("https://railspotting.com/login?next=%2Flink"), Some(5000)), Route::Browser);
         assert_eq!(from_dashboard(&u("https://example.com/"), Some(5000)), Route::Browser);
         assert_eq!(from_dashboard(&u("file:///etc/passwd"), Some(5000)), Route::Drop);
+    }
+
+    #[test]
+    fn downloads_go_to_the_downloads_folder_from_the_dashboard_only() {
+        use std::path::{Path, PathBuf};
+        let dl = Path::new("/Users/x/Downloads");
+        let none = |_: &Path| false;
+        let rec = u("http://127.0.0.1:5000/recordings/2026-10-25/a_voice.wav?download=1");
+        assert_eq!(download_path(&rec, Some(5000), Path::new("2026-10-25_a_voice.wav"), dl, &none),
+                   Some(PathBuf::from("/Users/x/Downloads/2026-10-25_a_voice.wav")));
+        // no suggested name: the address's last part
+        assert_eq!(download_path(&rec, Some(5000), Path::new(""), dl, &none), Some(PathBuf::from("/Users/x/Downloads/a_voice.wav")));
+        // taken names get a number, as in a browser
+        let taken = |p: &Path| p.ends_with("a_voice.wav") || p.ends_with("a_voice (2).wav");
+        assert_eq!(download_path(&rec, Some(5000), Path::new("a_voice.wav"), dl, &taken),
+                   Some(PathBuf::from("/Users/x/Downloads/a_voice (3).wav")));
+        // a suggested name can't climb out of the folder
+        assert_eq!(download_path(&rec, Some(5000), Path::new("../../.ssh/x"), dl, &none), Some(PathBuf::from("/Users/x/Downloads/x")));
+        assert_eq!(download_path(&rec, Some(5000), Path::new("..."), dl, &none), Some(PathBuf::from("/Users/x/Downloads/a_voice.wav")));
+        // anywhere else: not saved
+        assert_eq!(download_path(&rec, Some(5001), Path::new("a.wav"), dl, &none), None);
+        assert_eq!(download_path(&u("https://example.com/a.wav"), Some(5000), Path::new("a.wav"), dl, &none), None);
     }
 
     #[test]
