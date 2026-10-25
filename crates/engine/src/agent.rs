@@ -19,7 +19,7 @@ use railspotting_scanner::monitor::Hooks;
 use railspotting_scanner::scanner::{system_finder, system_opener, BANDS_MHZ};
 use railspotting_scanner::{desired_role, AutoEotWatch, CommandHost, CommandRunner, FocusManager, RoleManager,
                            ScannerError, ScannerMonitor, Timing};
-use railspotting_store::assign::{auto_mode, role_configs, RoleAssigner};
+use railspotting_store::assign::{auto_mode, parse_role_order, role_configs, role_order, RoleAssigner};
 use railspotting_store::history::History;
 use railspotting_store::identity::{load_or_create_identity, save_identity, valid_device_id, SYS_NET};
 use railspotting_store::outbox::Outbox;
@@ -46,7 +46,8 @@ pub const TT_RESULT: &str = "transcription_test.json";
 pub const LINK_TRIGGER: &str = "start_link";
 pub const LINK_IDLE_S: f64 = 5.0;
 pub const INSTALLED_CONFIG: &str = "/opt/railspotting-receiver/receiver.json";
-pub const SIM_SERIALS: [&str; 2] = ["SIM00001", "SIM00002"];
+// one simulated dongle each for EOT, ITC and VHF (the first three roles); HOT stays empty
+pub const SIM_SERIALS: [&str; 3] = ["SIM00001", "SIM00002", "SIM00003"];
 pub const SDR_SCAN_S: f64 = 10.0; // dongle list through librtlsdr, when sysfs can't be read
 pub const USB_CHECK_S: f64 = 2.0; // USB presence through sysfs (touches no device)
 
@@ -389,7 +390,14 @@ impl Agent {
                 SdrHandle::new(SdrSource::new(d, &sdr, &state_dir, emit.clone(), dsp_tr.clone(), clock.clone()), factory.clone())
             }).collect();
             let roles: Vec<String> = sdrs.iter().map(|s| s.with(|x| x.role.clone())).collect();
-            let assigner = if auto_sdr { Some(RoleAssigner::new(&roles, &state_dir, clock.clone())) } else { None };
+            let assigner = if auto_sdr {
+                let mut a = RoleAssigner::new(&roles, &state_dir, clock.clone());
+                // which roles take free dongles, first to last (receiver.json, or the built-in order)
+                a.order = role_order(&sdr);
+                Some(a)
+            } else {
+                None
+            };
             if let Some(a) = &assigner {
                 for (s, serial) in sdrs.iter().zip(&a.assigned) {
                     s.with(|x| x.serial = serial.clone().unwrap_or_default());
@@ -651,6 +659,8 @@ impl Agent {
             log::warn!("could not save the channel plan: {e}");
         }
         self.check_detectors(&cfg);
+        // the order roles take free dongles in, from the website (proposed v1.13)
+        self.apply_role_order(&cfg);
         // dongle jobs chosen on the website (v1.11)
         if self.assigner.is_some() {
             let present = lock(&self.present_serials).clone();
@@ -663,6 +673,39 @@ impl Agent {
         if old.as_ref() != cfg.get("config_version") {
             log::info!("channel plan version {} applied ({} channels)", value_str_opt(cfg.get("config_version")), chans.len());
         }
+    }
+
+    /// The website's order for roles taking free dongles (`sdr_role_order` in /config, proposed
+    /// contract v1.13): a role left out takes none. It is also written into receiver.json, so it
+    /// holds when the headend is out of reach.
+    fn apply_role_order(&self, cfg: &Value) {
+        let Some(assigner) = &self.assigner else { return };
+        let Some(order) = cfg.get("sdr_role_order").and_then(parse_role_order) else { return };
+        {
+            let mut a = lock(assigner);
+            if a.order == order {
+                return;
+            }
+            log::info!("dongle role order from the website: {}", if order.is_empty() { "none".to_string() } else { order.join(", ") });
+            a.order = order.clone();
+        }
+        if let Err(e) = self.save_role_order(&order) {
+            log::warn!("could not write the role order into receiver.json: {e}");
+        }
+    }
+
+    /// `sdr.role_order` in receiver.json, the rest of the file as it was.
+    fn save_role_order(&self, order: &[String]) -> Result<(), String> {
+        let Some(path) = &self.settings.path else { return Ok(()) };
+        let mut raw: Value = match std::fs::read_to_string(path) {
+            Ok(t) => serde_json::from_str(&t).map_err(|e| format!("{}: {e}", path.display()))?,
+            Err(_) => json!({}),
+        };
+        let Some(root) = raw.as_object_mut() else { return Err(format!("{} is not a JSON object", path.display())) };
+        let sdr = root.entry("sdr").or_insert_with(|| json!({}));
+        let Some(sdr) = sdr.as_object_mut() else { return Err(format!("{}: sdr is not an object", path.display())) };
+        sdr.insert("role_order".into(), json!(order));
+        railspotting_common::write_atomic(path, (json_dumps_indent(&raw, 2) + "\n").as_bytes()).map_err(|e| format!("{}: {e}", path.display()))
     }
 
     /// API contract v1.5 section 5: hand the headend's detector list to the transcriber, and

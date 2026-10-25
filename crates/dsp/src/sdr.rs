@@ -56,7 +56,8 @@ pub fn max_event_s(kind: &str) -> f64 {
 }
 
 pub fn role_default_center(role: &str) -> f64 {
-    match role { "vhf" => 161.5452, "eot" => 458.1385, "hot" => 453.1385, _ => 460.0 }
+    // ITC: between the national channel (102) and the common base channels, 101 to 125 in view
+    match role { "vhf" => 161.5452, "eot" => 458.1385, "hot" => 453.1385, "itc" => 220.3, _ => 460.0 }
 }
 
 fn histogram_flatness(it: impl Iterator<Item = f32>) -> f64 {
@@ -128,6 +129,11 @@ pub fn freq_of(c: &Value) -> f64 {
 
 /// (channels this role takes, reference or None).
 pub fn wanted(role: &str, channels: &[Value], reference: Option<&Value>) -> (Vec<Value>, Option<Value>) {
+    // ITC finds its own channels from base station beacons (itc_rx); the headend's plan is not
+    // for it
+    if role == "itc" {
+        return (vec![], None);
+    }
     if role == "vhf" {
         let chans = channels.iter().filter(|c| freq_of(c) < UHF_MHZ).cloned().collect();
         let r = reference.filter(|r| !r.is_null() && freq_of(r) < UHF_MHZ).cloned();
@@ -553,6 +559,8 @@ pub struct SdrSource {
     /// (start, MHz) of calls opened in the last minute, to tell a call on one channel from a burst
     /// of interference that opens many channels at once
     recent_opens: std::collections::VecDeque<(f64, f64)>,
+    /// An ITC dongle's decoder (role `itc`); its samples go there instead of to the detectors.
+    pub itc: Option<crate::itc_rx::ItcRx>,
 }
 
 /// Other channels opening within this many seconds of a call make it part of a burst.
@@ -614,6 +622,7 @@ impl SdrSource {
             Some(v) => v.as_f64(),
         };
         let fpw = frames_per_window(rate);
+        let role_is_itc = role == "itc";
         let fft = FftPlanner::<f32>::new().plan_fft_forward(FFT_SIZE);
         let scratch_len = fft.get_inplace_scratch_len();
         let now = clock();
@@ -645,6 +654,7 @@ impl SdrSource {
             corrupt: false, corrupt_run: 0, last_corrupt_reopen: 0.0,
             last_eot: None, last_transcript: Arc::new(Mutex::new(None)), last_error: None,
             recent_opens: std::collections::VecDeque::new(),
+            itc: (role_is_itc).then(|| crate::itc_rx::ItcRx::new(dev_cfg, state_dir)),
         }
     }
 
@@ -997,6 +1007,11 @@ impl SdrSource {
         if self.check_corrupt(used) {
             return; // random bytes: no events, and keep the learned floors
         }
+        if let Some(itc) = self.itc.as_mut() {
+            let center = self.center.or(self.plan.center).unwrap_or_else(|| role_default_center("itc"));
+            itc.process(samples, ts - samples.len() as f64 / self.rate, center, self.rate);
+            return;
+        }
         self.spectrum(used, n_win);
         let t0 = ts - samples.len() as f64 / self.rate;
 
@@ -1235,6 +1250,10 @@ impl SdrSource {
             "channels": chans, "held_for_transcript": self.held(),
             "last_error": self.last_error,
         });
-        v.as_object().cloned().unwrap_or_default()
+        let mut m = v.as_object().cloned().unwrap_or_default();
+        if let Some(itc) = &self.itc {
+            m.insert("itc".into(), Value::Object(itc.status()));
+        }
+        m
     }
 }

@@ -5,6 +5,7 @@
 
 pub mod bursts;
 pub mod eot;
+pub mod itc_rx;
 pub mod sdr;
 pub mod sim;
 pub mod voice;

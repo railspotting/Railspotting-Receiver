@@ -9,6 +9,10 @@
 //! for each dongle on the website. A dongle it names takes that role (or none, for "off"); the
 //! others still fill the free roles by themselves.
 //!
+//! Which roles free dongles fill, and in what order, is `sdr.role_order` in receiver.json (a role
+//! left out gets no dongle); the headend can set it too (`sdr_role_order` in /config), and the
+//! receiver then writes it into receiver.json.
+//!
 //! The receiver supplies the dongle listing (sysfs or librtlsdr); this module only sees serials.
 
 use crate::jsonfmt;
@@ -20,8 +24,10 @@ use std::path::{Path, PathBuf};
 pub const ROLES_FILE: &str = "sdr_roles.json";
 pub const RELEASE_AFTER_S: f64 = 60.0; // a role waits this long for its missing dongle before moving on
 /// The roles a receiver fills by itself, in order: the first dongle found takes EOT, the second
-/// VHF (voice: detectors and road calls), the third HOT (an owner's decision, October 2026).
-pub const DEFAULT_ROLES: [&str; 3] = ["eot", "vhf", "hot"];
+/// ITC (220 MHz PTC), the third VHF (voice: defect detectors and road calls, which share the
+/// channels), the fourth HOT (an owner's decision, October 2026).
+pub const DEFAULT_ROLES: [&str; 4] = ["eot", "itc", "vhf", "hot"];
+pub const ITC_ANTENNA: &str = "the 220 MHz antenna (a whip about 33 cm long)";
 pub const UHF_ANTENNA: &str = "the UHF antenna (the shorter one, or the diplexer's high-band port)";
 
 /// Serials that mean "pick one for me".
@@ -38,8 +44,33 @@ pub fn role_defaults(role: &str) -> Option<Value> {
                              "antenna": UHF_ANTENNA})),
         "hot" => Some(json!({"name": "UHF SDR (HOT)", "gain": 40.2, "sample_rate": 2_400_000.0,
                              "antenna": UHF_ANTENNA})),
+        "itc" => Some(json!({"name": "220 MHz SDR (ITC)", "gain": 40.2, "sample_rate": 1_024_000.0,
+                             "antenna": ITC_ANTENNA})),
         _ => None,
     }
+}
+
+/// The order roles take free dongles in, from `sdr.role_order` (roles left out get none), or the
+/// built-in order. Unknown roles and repeats are dropped.
+pub fn role_order(sdr_settings: &Value) -> Vec<String> {
+    match sdr_settings.get("role_order") {
+        Some(v) => parse_role_order(v).unwrap_or_else(|| DEFAULT_ROLES.iter().map(|r| r.to_string()).collect()),
+        None => DEFAULT_ROLES.iter().map(|r| r.to_string()).collect(),
+    }
+}
+
+/// A role order as given (receiver.json, or the headend's `sdr_role_order`): a list of role
+/// names. None when it is not a list of strings.
+pub fn parse_role_order(v: &Value) -> Option<Vec<String>> {
+    let a = v.as_array()?;
+    let mut out: Vec<String> = vec![];
+    for r in a {
+        let r = r.as_str()?.trim().to_ascii_lowercase();
+        if DEFAULT_ROLES.contains(&r.as_str()) && !out.contains(&r) {
+            out.push(r);
+        }
+    }
+    Some(out)
 }
 
 /// The serial field as text: empty for null, false, zero and empty values, `True` for true.
@@ -127,6 +158,9 @@ pub struct RoleAssigner {
     pub spare: Vec<String>,
     /// The headend's choices for plugged-in dongles: serial to role, or "off".
     pub chosen: BTreeMap<String, String>,
+    /// Which roles take free dongles, first to last; a role left out takes none (and gives its
+    /// dongle back). Empty: every slot, in slot order.
+    pub order: Vec<String>,
 }
 
 impl RoleAssigner {
@@ -146,7 +180,7 @@ impl RoleAssigner {
             }
         }
         RoleAssigner { keys, path, clock, release_after_s, assigned, missing_since: HashMap::new(),
-                       duplicates: Vec::new(), spare: Vec::new(), chosen: BTreeMap::new() }
+                       duplicates: Vec::new(), spare: Vec::new(), chosen: BTreeMap::new(), order: Vec::new() }
     }
 
     /// The serial assigned to a slot key.
@@ -176,6 +210,17 @@ impl RoleAssigner {
             Some((r, n)) if n.parse::<usize>().is_ok() => r,
             _ => k,
         }
+    }
+
+    /// Whether a slot's role takes free dongles.
+    fn enabled(&self, i: usize) -> bool {
+        self.order.is_empty() || self.order.iter().any(|r| r == self.role_of(i))
+    }
+
+    /// A slot's place in the order (its slot index when there is no order, or its role is not
+    /// in it).
+    fn priority(&self, i: usize) -> usize {
+        self.order.iter().position(|r| r == self.role_of(i)).unwrap_or(self.order.len() + i)
     }
 
     /// Match the connected serials to roles. A change with an empty new serial leaves the slot
@@ -241,6 +286,15 @@ impl RoleAssigner {
                 _ => {}
             }
         }
+        // a role switched off (left out of the order) gives its dongle back, unless the headend
+        // chose that dongle for it
+        let switched_off: Vec<usize> =
+            (0..self.keys.len()).filter(|&i| !self.enabled(i) && forced[i].is_none() && self.assigned[i].is_some()).collect();
+        for i in switched_off {
+            changes.push((i, self.assigned[i].clone(), String::new()));
+            self.assigned[i] = None;
+            self.missing_since.remove(&i);
+        }
         let mut free: Vec<String> = present
             .iter()
             .filter(|s| !self.chosen.contains_key(*s) && !self.assigned.iter().any(|a| a.as_ref() == Some(*s)))
@@ -251,9 +305,12 @@ impl RoleAssigner {
         // be being replugged). Until then, enough free dongles are kept back for it.
         let missing = |i: usize| self.assigned[i].as_ref().is_some_and(|old| !present.contains(old));
         let released = |i: usize| now - self.missing_since.get(&i).copied().unwrap_or(now) >= self.release_after_s;
-        let replacing: Vec<usize> = (0..self.keys.len()).filter(|&i| missing(i) && released(i)).collect();
+        let mut replacing: Vec<usize> = (0..self.keys.len()).filter(|&i| missing(i) && released(i)).collect();
         let waiting = (0..self.keys.len()).filter(|&i| missing(i) && !released(i)).count();
-        let empty: Vec<usize> = (0..self.keys.len()).filter(|&i| self.assigned[i].is_none()).collect();
+        let mut empty: Vec<usize> = (0..self.keys.len()).filter(|&i| self.assigned[i].is_none() && self.enabled(i)).collect();
+        // first role in the order first
+        replacing.sort_by_key(|&i| self.priority(i));
+        empty.sort_by_key(|&i| self.priority(i));
         for (pass, slots) in [replacing, empty].into_iter().enumerate() {
             for i in slots {
                 // empty jobs leave a free dongle for each job still waiting for its own
@@ -306,13 +363,15 @@ mod tests {
     #[test]
     fn role_configs_defaults_and_overrides() {
         let slots = role_configs(&json!({"devices": []}));
-        // EOT first, then VHF, then HOT
-        assert_eq!(slots.iter().map(|s| s["role"].as_str().unwrap()).collect::<Vec<_>>(), vec!["eot", "vhf", "hot"]);
-        assert_eq!(slots[2]["name"], "UHF SDR (HOT)");
+        // EOT first, then ITC, then VHF, then HOT
+        assert_eq!(slots.iter().map(|s| s["role"].as_str().unwrap()).collect::<Vec<_>>(), vec!["eot", "itc", "vhf", "hot"]);
+        assert_eq!(slots[3]["name"], "UHF SDR (HOT)");
         assert!(slots.iter().all(|s| s["serial"] == ""));
-        assert_eq!(slots[1]["gain"], 20.7);
+        assert_eq!(slots[2]["gain"], 20.7);
         assert_eq!(slots[0]["sample_rate"], 2_400_000.0);
-        assert!(slots[1]["antenna"].as_str().unwrap().contains("longer"));
+        assert_eq!(slots[1]["sample_rate"], 1_024_000.0);
+        assert!(slots[1]["antenna"].as_str().unwrap().contains("220 MHz"));
+        assert!(slots[2]["antenna"].as_str().unwrap().contains("longer"));
         assert!(slots[0]["antenna"].as_str().unwrap().contains("shorter"));
         let custom = role_configs(&json!({"devices": [{"serial": "auto", "role": "vhf", "gain": 15.0}]}));
         assert_eq!(custom[0]["gain"], 15.0);
@@ -324,6 +383,40 @@ mod tests {
         let other = role_configs(&json!({"devices": [{"role": "ais"}]}));
         assert_eq!(other[0]["name"], "AIS SDR");
         assert_eq!(other[0]["antenna"], UHF_ANTENNA);
+    }
+
+    #[test]
+    fn role_order_from_settings() {
+        assert_eq!(role_order(&json!({})), vec!["eot", "itc", "vhf", "hot"]);
+        assert_eq!(role_order(&json!({"role_order": ["vhf", "EOT", "vhf", "ais"]})), vec!["vhf", "eot"]);
+        assert_eq!(role_order(&json!({"role_order": []})), Vec::<String>::new());
+        // not a list of names: the built-in order
+        assert_eq!(role_order(&json!({"role_order": "eot"})), vec!["eot", "itc", "vhf", "hot"]);
+        assert_eq!(parse_role_order(&json!([1, 2])), None);
+    }
+
+    #[test]
+    fn free_dongles_follow_the_order_and_roles_left_out_get_none() {
+        let dir = tmp("role-order");
+        let clock = FakeClock::new(1000.0);
+        let roles = ["eot", "itc", "vhf", "hot"];
+        let mut a = RoleAssigner::new(&roles, &dir, clock.clock());
+        // two dongles: EOT and ITC, the first two in the order
+        a.update(&["30001111", "30002222"]);
+        assert_eq!(a.get("eot"), Some("30001111"));
+        assert_eq!(a.get("itc"), Some("30002222"));
+        assert_eq!(a.get("vhf"), None);
+        // the owner moves VHF ahead of ITC: the next free dongle goes to VHF
+        a.order = vec!["eot".into(), "vhf".into(), "itc".into(), "hot".into()];
+        a.update(&["30001111", "30002222", "30003333"]);
+        assert_eq!(a.get("vhf"), Some("30003333"));
+        assert_eq!(a.get("itc"), Some("30002222"), "a dongle already in a role keeps it");
+        // ITC switched off: its dongle goes back and the next role in the order takes it
+        a.order = vec!["eot".into(), "vhf".into(), "hot".into()];
+        let changes = a.update(&["30001111", "30002222", "30003333"]);
+        assert_eq!(a.get("itc"), None);
+        assert_eq!(a.get("hot"), Some("30002222"));
+        assert!(changes.iter().any(|c| c.2.is_empty()));
     }
 
     #[test]

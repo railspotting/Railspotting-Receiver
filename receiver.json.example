@@ -18,6 +18,7 @@
     "record_keep": 500,
     "voice_clip_keep": 50,
     "auto_assign": true,
+    "role_order": ["eot", "itc", "vhf", "hot"],
     "devices": []
   },
   "watch_clips": []
