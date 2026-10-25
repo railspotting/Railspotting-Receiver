@@ -138,6 +138,18 @@ impl History {
         Ok(rows.iter().filter_map(|t| serde_json::from_str(t).ok()).collect())
     }
 
+    /// Events of `kind` that started at `since` or later, oldest first; at most `limit`, the
+    /// newest kept. For the status page's statistics.
+    pub fn events_since(&self, since: f64, kind: &str, limit: i64) -> Result<Vec<Value>, StoreError> {
+        let g = self.lock();
+        let db = g.as_ref().ok_or(StoreError::Closed)?;
+        let mut st = db.prepare("SELECT payload FROM (SELECT payload, start_ts FROM events WHERE start_ts >= ? AND kind = ? \
+                                 ORDER BY start_ts DESC LIMIT ?) ORDER BY start_ts")?;
+        let rows = st.query_map(rusqlite::params![since, kind, limit.max(1)], |r| r.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows.iter().filter_map(|t| serde_json::from_str(t).ok()).collect())
+    }
+
     pub fn signal(&self, since: f64) -> Result<Vec<Value>, StoreError> {
         let g = self.lock();
         let db = g.as_ref().ok_or(StoreError::Closed)?;
@@ -183,5 +195,21 @@ mod tests {
         assert_eq!(h.events(100, None, None).unwrap().len(), 0);
         assert_eq!(h.signal(0.0).unwrap().len(), 1);
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn events_since_takes_one_kind_oldest_first() {
+        let t = std::env::temp_dir().join(format!("rs-hist-since-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&t);
+        let c = FakeClock::new(1_000_000.0);
+        let h = History::with(&t, 7.0, c.clock()).unwrap();
+        for (id, ts, kind) in [("a", 999_000.0, "voice"), ("b", 999_100.0, "telemetry"), ("c", 999_200.0, "voice"), ("d", 999_300.0, "voice")] {
+            h.add_event(&json!({"event_id": id, "state": "closed", "start_ts": ts, "kind": kind})).unwrap();
+        }
+        let ids = |v: Vec<Value>| v.iter().map(|e| e["event_id"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+        assert_eq!(ids(h.events_since(999_050.0, "voice", 100).unwrap()), ["c", "d"]);
+        assert_eq!(ids(h.events_since(0.0, "voice", 2).unwrap()), ["c", "d"], "the newest within the limit");
+        h.close();
+        let _ = std::fs::remove_file(&t);
     }
 }

@@ -276,6 +276,9 @@ Update this section as phases complete: what was done, what was measured, what i
     HOT) in the fixed dongle rows, and an editor for the whole receiver.json
     (`GET`/`POST /api/config-file`, same token gate). A file must be a JSON object that loads as
     settings; when the receiver won't start with it, the old file is put back.
+  - Done: the dashboard has tabs (Status, EOT, Defect detectors, ITC, HOT, Voice) with numbers
+    over time for tuning; the window shows them as the browser does, and Settings stay on the
+    Status tab.
   - Tested: validation of the new keys, `sdr.assign` replaced whole on save, receiver.json jobs
     with the website winning, and the whole-file round trip with the restore.
   - Left: first-run steps inside the dashboard (librtlsdr Check Again, model progress, dongle

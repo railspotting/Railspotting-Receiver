@@ -4,6 +4,9 @@
 //! GET /api/status   live status, as `status` shows it, without the scanner cable's serial number
 //! GET /api/events   event history, newest first (?limit=, ?before=, ?kind=)
 //! GET /api/signal   signal readings (?hours=, up to 7 days)
+//! GET /api/feature  numbers for one tab (?name=eot|hot|detector|voice, ?hours=): see `stats`
+//! GET /api/itc      the ITC tab: live counts and units, and wayside state changes (?hours=)
+//! GET /api/logs     the newest log lines (?topic=all|eot|hot|itc|detector|voice, ?limit=)
 //! GET /link-qr.svg  QR code of the link address while the receiver waits for its owner (v1.4)
 //! GET /api/recordings  saved recordings, newest first (?limit=, ?source= one or several, comma separated)
 //! GET /recordings/<folder>/<name>_voice.wav  one recording (?download=1 to save it)
@@ -88,6 +91,48 @@ pub const RECORDING_SOURCES: [(&str, &str, bool); 4] = [
     ("voice_clips", "voice", false),
 ];
 pub const RECORDINGS_LIMIT: usize = 500;
+/// Events read for a tab's numbers, at most (a week of EOT bursts on a busy line).
+const FEATURE_EVENTS: i64 = 60_000;
+/// Newest events a tab lists.
+const FEATURE_RECENT: usize = 100;
+
+/// The ITC tab: the ITC dongle's live counts and units (when there is one), and the wayside
+/// state changes between `t0` and `t1` from the daily files, which outlast restarts.
+fn itc_view(agent: &Agent, t0: f64, t1: f64) -> Value {
+    let live = agent.sdrs().iter().find_map(|s| s.with(|x| x.itc.as_ref().map(|r| {
+        let mut v = r.detail();
+        v["status"] = Value::Object(r.status());
+        v["connected"] = serde_json::json!(x.connected);
+        v
+    })));
+    let changes = railspotting_dsp::itc_rx::read_changes(&agent.state_dir, t0, 20_000);
+    let step = crate::stats::bucket_s(t0, t1);
+    let first_bar = (t0 / step).floor() * step;
+    let bars = (((t1 - first_bar) / step).ceil() as usize).max(1);
+    let mut buckets = vec![0u64; bars];
+    let mut per_unit: std::collections::BTreeMap<String, (u64, f64)> = Default::default();
+    let mut real = 0;
+    for c in &changes {
+        if c["first"] == true {
+            continue;
+        }
+        real += 1;
+        let t = c["t"].as_f64().unwrap_or(t0);
+        buckets[(((t - first_bar) / step) as usize).min(bars - 1)] += 1;
+        let u = per_unit.entry(c["wiu"].as_str().unwrap_or("").to_string()).or_default();
+        u.0 += 1;
+        u.1 = u.1.max(t);
+    }
+    serde_json::json!({
+        "t0": t0, "t1": t1, "bucket_s": step, "live": live, "changes": real,
+        "buckets": buckets.iter().enumerate().map(|(i, n)| serde_json::json!({"t": first_bar + i as f64 * step, "n": n})).collect::<Vec<_>>(),
+        "units": per_unit.into_iter().map(|(w, (n, last))| serde_json::json!({"wiu": w, "changes": n, "last": last})).collect::<Vec<_>>(),
+        "recent": changes.iter().rev().take(300).collect::<Vec<_>>(),
+        // every change in the range, short, for the rail layout and the aspects over time:
+        // [time, unit, codes, first]
+        "history": changes.iter().map(|c| serde_json::json!([c["t"], c["wiu"], c["codes"], c["first"]])).collect::<Vec<_>>(),
+    })
+}
 
 /// A recording's file name as the receiver writes it: "20261012-195805.363_voice.wav".
 fn recording_name_ok(name: &str) -> bool {
@@ -348,6 +393,28 @@ pub fn route(agent: &Agent, path: &str, query: &str) -> Reply {
             let hours = float("hours").unwrap_or(24.0).clamp(0.1, MAX_HOURS);
             let rows = agent.history.signal((agent.clock)() - hours * 3600.0).unwrap_or_default();
             json_reply(&Value::Array(rows))
+        }
+        "/api/feature" => {
+            let name = get("name").unwrap_or("");
+            let kind = match name {
+                "eot" | "hot" => "telemetry",
+                "detector" | "voice" => "voice",
+                _ => return (400, "text/plain; charset=utf-8", b"name must be eot, hot, detector or voice\n".to_vec()),
+            };
+            let now = (agent.clock)();
+            let t0 = now - float("hours").unwrap_or(24.0).clamp(0.1, MAX_HOURS) * 3600.0;
+            let rows = agent.history.events_since(t0, kind, FEATURE_EVENTS).unwrap_or_default();
+            json_reply(&crate::stats::feature_stats(name, &rows, t0, now, FEATURE_RECENT))
+        }
+        "/api/logs" => {
+            let topic = get("topic").unwrap_or("all");
+            let limit = int("limit", 300).clamp(1, 1000) as usize;
+            json_reply(&Value::Array(crate::logging::recent(limit, |m| crate::stats::log_on(topic, m))))
+        }
+        "/api/itc" => {
+            let now = (agent.clock)();
+            let hours = float("hours").unwrap_or(24.0).clamp(0.1, MAX_HOURS);
+            json_reply(&itc_view(agent, now - hours * 3600.0, now))
         }
         _ => (404, "text/plain; charset=utf-8", b"not found\n".to_vec()),
     }

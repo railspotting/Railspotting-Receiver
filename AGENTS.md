@@ -98,7 +98,8 @@ cargo clippy -p <crate> --tests
     more channels than the profile allows is interference, and a transcript that repeats a phrase
     three or more times is speech recognition looping on noise; both are dropped.
 - **ITC stays on the receiver.** Decoded ITC messages describe railroad operations: they go to
-  `state/itc/` and the local feed, never to the headend, unless the owner decides otherwise.
+  `state/itc/`, the local feed and the status page's ITC tab, never to the headend, unless the
+  owner decides otherwise.
   Their JSON fields (`crates/itc/messages.md`) are read by RailSpotting-ITC-Monitor: change them
   only on purpose, and update both.
 - **Dongle roles** fill in `sdr.role_order` (default EOT, ITC, VHF, HOT; an owner decision of
