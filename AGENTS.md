@@ -99,10 +99,12 @@ cargo clippy -p <crate> --tests
     more channels than the profile allows is interference, and a transcript that repeats a phrase
     three or more times is speech recognition looping on noise; both are dropped.
 - **ITC messages stay on the receiver.** Decoded ITC messages describe railroad operations: they
-  go to `state/itc/` and the local feed, never to the headend. Only wayside state changes and base
-  stations are uploaded (`POST /itc`, contract v1.18, `docs/contract-v1.18.md`), and only while
-  `/config` `itc.upload` is true, which the owner turns on; repeats are never sent. Turned off,
-  the queued records are dropped. Their JSON fields (`crates/itc/messages.md`) are read by RailSpotting-ITC-Monitor: change them
+  go to `state/itc/`, the local feed and the status page's ITC tab, never to the headend. Only
+  wayside state changes and base stations are uploaded (`POST /itc`, contract v1.18,
+  `docs/contract-v1.18.md`), and only while `/config` `itc.upload` is true, which the owner turns
+  on; repeats are never sent. Turned off, the queued records are dropped. The status page keeps its
+  own changes (`state/itc/changes/`) from the same tracker, upload or not. Their JSON fields
+  (`crates/itc/messages.md`) are read by RailSpotting-ITC-Monitor: change them
   only on purpose, and update both.
 - **Dongle roles** fill in `sdr.role_order` (default EOT, ITC, VHF, HOT; an owner decision of
   October 2026). The headend can set the order (`sdr_role_order`, proposed contract v1.17, `docs/contract-v1.17.md`) and

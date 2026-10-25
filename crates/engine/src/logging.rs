@@ -1,7 +1,11 @@
 //! Log lines as receivers have always written them: "LEVEL message" to stdout (journald), with the
-//! time in front on a terminal. Tests capture what one thread logs.
+//! time in front on a terminal. Tests capture what one thread logs. The last lines are also kept
+//! in memory for the status page.
 
+use serde_json::{json, Value};
 use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::sync::Mutex;
 use std::io::{IsTerminal, Write};
 use std::sync::OnceLock;
 
@@ -15,6 +19,18 @@ struct Logger {
 }
 
 static LOGGER: OnceLock<Logger> = OnceLock::new();
+
+/// Lines kept for the status page: about a day on a quiet receiver.
+const KEEP_LINES: usize = 3000;
+/// (time, level, message), oldest first.
+static RECENT: Mutex<VecDeque<(f64, &'static str, String)>> = Mutex::new(VecDeque::new());
+
+/// The newest log lines that `keep` accepts (it is given the message), newest first.
+pub fn recent(limit: usize, keep: impl Fn(&str) -> bool) -> Vec<Value> {
+    let r = RECENT.lock().unwrap_or_else(|p| p.into_inner());
+    r.iter().rev().filter(|(_, _, m)| keep(m)).take(limit)
+        .map(|(t, l, m)| json!({"t": t, "level": l, "text": m})).collect()
+}
 
 impl log::Log for Logger {
     fn enabled(&self, m: &log::Metadata) -> bool {
@@ -35,7 +51,15 @@ impl log::Log for Logger {
             log::Level::Trace => "DEBUG",
             l => l.as_str(),
         };
-        let line = format!("{lvl} {}", r.args());
+        let msg = r.args().to_string();
+        {
+            let mut q = RECENT.lock().unwrap_or_else(|p| p.into_inner());
+            q.push_back((railspotting_common::now(), lvl, msg.clone()));
+            while q.len() > KEEP_LINES {
+                q.pop_front();
+            }
+        }
+        let line = format!("{lvl} {msg}");
         CAPTURE.with(|c| {
             if let Some(buf) = c.borrow_mut().as_mut() {
                 buf.push_str(&line);

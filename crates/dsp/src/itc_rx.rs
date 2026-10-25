@@ -10,6 +10,10 @@
 //! railroad operations, so they are not sent to the headend. When the owner turns ITC upload on
 //! (`/config` `itc.upload`, contract v1.18), wayside state changes and base stations are, as
 //! records from `railspotting_itc::changes`; repeats never are.
+//!
+//! For the status page's ITC tab the same tracker always runs here too, upload or not, and each
+//! wayside change (or first state) goes to `state/itc/changes/YYYY-MM-DD.jsonl`, so the page can
+//! look back without reading the busy message log.
 
 use num_complex::Complex32;
 use railspotting_itc::decode::{decode_burst, Decoder};
@@ -32,6 +36,24 @@ pub const DEFAULT_KEEP_DAYS: u64 = 7;
 pub const SUMMARY_S: f64 = 60.0;
 /// The heartbeat lists base stations heard within this many seconds.
 pub const BASES_S: f64 = 300.0;
+
+/// Hours of message counts kept in memory.
+const HOURS_KEPT: usize = 24 * 7;
+/// No message on any channel for this long is a gap in reception (base stations talk all the time).
+const RX_GAP_S: f64 = 20.0;
+const GAPS_KEPT: usize = 50;
+const RECENT_CHANGES: usize = 500;
+
+/// A wayside unit as the status page shows it.
+#[derive(Default)]
+struct UnitView {
+    codes: Vec<i64>,
+    last: f64,
+    level: f64,
+    ch: i64,
+    changes: u64,
+    messages: u64,
+}
 
 /// Where ITC records go while upload is on: the agent's ITC outbox.
 pub struct ItcUpload {
@@ -87,6 +109,17 @@ pub struct ItcRx {
     /// The last minute's messages (time, type, wayside unit) and failed frames, for the heartbeat.
     recent: VecDeque<(f64, String, Option<String>)>,
     crc_fails: VecDeque<f64>,
+    /// The status page's own tracker, always on (its record IDs are not used).
+    local: Tracker,
+    units: BTreeMap<String, UnitView>,
+    /// Message counts by hour (start, Unix seconds) and type.
+    hourly: BTreeMap<i64, BTreeMap<String, u64>>,
+    /// Messages by channel and type.
+    by_channel: BTreeMap<i64, BTreeMap<String, u64>>,
+    /// Stretches with no messages, (from, to), newest last.
+    gaps: VecDeque<(f64, f64)>,
+    recent_changes: VecDeque<Value>,
+    changes_log: Option<(String, std::io::BufWriter<std::fs::File>)>,
 }
 
 fn utc_date(t: f64) -> String {
@@ -132,6 +165,13 @@ impl ItcRx {
             tracker: None,
             recent: VecDeque::new(),
             crc_fails: VecDeque::new(),
+            local: Tracker::new(uuid::Uuid::nil()),
+            units: BTreeMap::new(),
+            hourly: BTreeMap::new(),
+            by_channel: BTreeMap::new(),
+            gaps: VecDeque::new(),
+            recent_changes: VecDeque::new(),
+            changes_log: None,
         }
     }
 
@@ -203,6 +243,7 @@ impl ItcRx {
             let kind = m["type"].as_str().unwrap_or("OTHER").to_string();
             *self.by_type.entry(kind.clone()).or_default() += 1;
             let t = m["t"].as_f64().unwrap_or(t0);
+            self.for_the_page(m, t, &kind);
             self.last_t = self.last_t.max(t);
             self.recent.push_back((t, kind, m["wiu"].as_str().map(str::to_ascii_lowercase)));
             if let (Some(tr), Some(u)) = (self.tracker.as_mut(), &upload) {
@@ -295,6 +336,85 @@ impl ItcRx {
         }
     }
 
+    /// What the status page's ITC tab looks back on: counts by hour and channel, gaps, each
+    /// unit, and its state changes (kept in a daily file).
+    fn for_the_page(&mut self, m: &Value, t: f64, kind: &str) {
+        if self.last_t > 0.0 && t - self.last_t > RX_GAP_S {
+            self.gaps.push_back((self.last_t, t));
+            while self.gaps.len() > GAPS_KEPT {
+                self.gaps.pop_front();
+            }
+        }
+        let hour = (t / 3600.0).floor() as i64 * 3600;
+        *self.hourly.entry(hour).or_default().entry(kind.to_string()).or_default() += 1;
+        while self.hourly.len() > HOURS_KEPT {
+            self.hourly.pop_first();
+        }
+        if let Some(ch) = m["ch"].as_i64() {
+            *self.by_channel.entry(ch).or_default().entry(kind.to_string()).or_default() += 1;
+        }
+        if let Some(w) = m["wiu"].as_str() {
+            let u = self.units.entry(w.to_ascii_lowercase()).or_default();
+            u.messages += 1;
+            u.last = u.last.max(t);
+        }
+        let Some(r) = self.local.add(m) else { return };
+        if r["type"] != "wayside" {
+            return;
+        }
+        let wiu = r["wiu"].as_str().unwrap_or("").to_string();
+        let u = self.units.entry(wiu).or_default();
+        u.codes = r["codes"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
+        u.level = r["level_db"].as_f64().unwrap_or(0.0);
+        u.ch = r["channel"].as_i64().unwrap_or(0);
+        if r["first"] == false {
+            u.changes += 1;
+        }
+        self.write_change(t, &r);
+        self.recent_changes.push_back(r);
+        while self.recent_changes.len() > RECENT_CHANGES {
+            self.recent_changes.pop_front();
+        }
+    }
+
+    fn write_change(&mut self, t: f64, change: &Value) {
+        let day = utc_date(t);
+        let dir = self.dir.join("changes");
+        if self.changes_log.as_ref().is_none_or(|(d, _)| *d != day) {
+            if let Err(e) = std::fs::create_dir_all(&dir) {
+                log::warn!("ITC: {}: {e}", dir.display());
+                return;
+            }
+            prune_days(&dir, &day, self.keep_days);
+            let path = dir.join(format!("{day}.jsonl"));
+            match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+                Ok(f) => self.changes_log = Some((day, std::io::BufWriter::new(f))),
+                Err(e) => {
+                    log::warn!("ITC: {}: {e}", path.display());
+                    return;
+                }
+            }
+        }
+        if let Some((_, w)) = self.changes_log.as_mut() {
+            if writeln!(w, "{change}").and_then(|_| w.flush()).is_err() {
+                self.changes_log = None;
+            }
+        }
+    }
+
+    /// The units, counts by hour and channel, gaps and recent changes, for the status page.
+    pub fn detail(&self) -> Value {
+        let units: Vec<Value> = self.units.iter().map(|(w, u)| json!({
+            "wiu": w, "codes": u.codes, "last": u.last, "level_db": u.level, "ch": u.ch, "changes": u.changes, "messages": u.messages,
+        })).collect();
+        let count = |m: &BTreeMap<i64, BTreeMap<String, u64>>, key: &str| -> Vec<Value> {
+            m.iter().map(|(k, by)| json!({key: k, "n": by.values().sum::<u64>(), "by_type": by})).collect()
+        };
+        json!({"units": units, "hourly": count(&self.hourly, "t"), "channels": count(&self.by_channel, "ch"),
+               "recent_changes": self.recent_changes.iter().rev().collect::<Vec<_>>(),
+               "gaps": self.gaps.iter().map(|(a, b)| json!([a, b])).collect::<Vec<_>>()})
+    }
+
     /// Delete daily logs older than `keep_days` (file names sort by date).
     fn prune(&self, today: &str) {
         let Ok(rd) = std::fs::read_dir(&self.dir) else { return };
@@ -327,6 +447,46 @@ impl ItcRx {
         .cloned()
         .unwrap_or_default()
     }
+}
+
+/// Delete daily files (`YYYY-MM-DD.jsonl`) in `dir` so that `keep` days remain with today.
+fn prune_days(dir: &Path, today: &str, keep: u64) {
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let mut days: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "jsonl")).collect();
+    days.sort();
+    let keep = keep as usize;
+    let old: Vec<&PathBuf> = days.iter().filter(|p| p.file_stem().is_some_and(|s| s.to_string_lossy().as_ref() < today)).collect();
+    if old.len() + 1 > keep {
+        for p in &old[..old.len() + 1 - keep] {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+}
+
+/// Wayside state changes from `t0` on, from the daily files under `state_dir`, oldest first;
+/// at most `limit`, the newest kept.
+pub fn read_changes(state_dir: &Path, t0: f64, limit: usize) -> Vec<Value> {
+    let dir = state_dir.join("itc").join("changes");
+    let Ok(rd) = std::fs::read_dir(&dir) else { return vec![] };
+    let first = utc_date(t0);
+    let mut files: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "jsonl") && p.file_stem().is_some_and(|s| s.to_string_lossy().as_ref() >= first.as_str()))
+        .collect();
+    files.sort();
+    let mut out: VecDeque<Value> = VecDeque::new();
+    for f in files {
+        let Ok(text) = std::fs::read_to_string(&f) else { continue };
+        for line in text.lines() {
+            let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+            if v["t"].as_f64().is_some_and(|t| t >= t0) {
+                out.push_back(v);
+                if out.len() > limit {
+                    out.pop_front();
+                }
+            }
+        }
+    }
+    out.into()
 }
 
 #[cfg(test)]
@@ -402,6 +562,39 @@ mod tests {
 
     fn wiu(t: f64, codes: &[i64]) -> Value {
         json!({"type": "WIU", "wiu": "1234560ff0", "t": t, "ch": 114, "codes": codes, "crc_ok": true, "level_db": 20.0, "floor_db": -80.0})
+    }
+
+    #[test]
+    fn wayside_state_changes_are_kept_for_the_page() {
+        let dir = std::env::temp_dir().join(format!("rs-itc-changes-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut r = ItcRx::new(&json!({"serve": ""}), &dir);
+        let t0 = 1_792_713_600.0;
+        let reply = |t: f64, codes: &[i64]| {
+            let mut m = wiu(t, codes);
+            m["type"] = json!("WIU_REPLY");
+            m
+        };
+        // upload is off: the page still keeps a first state, then changes only; a late reply
+        // with the old state is not a change
+        r.handle(&[wiu(t0, &[15, 3]), wiu(t0 + 4.0, &[15, 3]), wiu(t0 + 8.0, &[3, 3]), reply(t0 + 9.0, &[15, 3]),
+                   wiu(t0 + 12.0, &[3, 3])], t0, 220.3, 1.024e6);
+        let got = read_changes(&dir, t0 - 1.0, 100);
+        assert_eq!(got.len(), 2, "{got:?}");
+        assert_eq!(got[0]["first"], true);
+        assert_eq!(got[1]["codes"], json!([3, 3]));
+        assert_eq!(got[1]["previous_codes"], json!([15, 3]));
+        let d = r.detail();
+        assert_eq!(d["units"][0]["changes"], 1);
+        assert_eq!(d["units"][0]["messages"], 5);
+        assert_eq!(d["recent_changes"][0]["t"], json!(t0 + 8.0), "newest first");
+        assert_eq!(d["channels"][0]["n"], 5);
+        // a quiet spell: a gap in reception, and a first state again
+        r.handle(&[wiu(t0 + 1000.0, &[3, 3])], t0 + 1000.0, 220.3, 1.024e6);
+        assert_eq!(r.detail()["gaps"], json!([[t0 + 12.0, t0 + 1000.0]]));
+        assert_eq!(read_changes(&dir, t0 + 500.0, 100)[0]["first"], true);
+        assert_eq!(read_changes(&dir, t0 - 1.0, 2).len(), 2, "the newest within the limit");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

@@ -118,12 +118,15 @@ A dongle with the `itc` role (a 220 MHz antenna, a whip about 33 cm long) decode
 it listens to the national channel (102) for base station beacons, adds the local channel of
 every base heard, and writes each decoded message to `state/itc/YYYY-MM-DD.jsonl` (kept for 7
 days) and to a local feed on 127.0.0.1:8221 that a monitor (RailSpotting-ITC-Monitor) can read.
-`status` and the status page show the channels, the bases heard and the message counts. ITC
-messages describe railroad operations: they stay on the receiver. When the owner turns ITC upload
-on for the receiver on the website (`/config` `itc.upload`, contract v1.18,
-[docs/contract-v1.18.md](docs/contract-v1.18.md)), the receiver also sends each wayside unit's state
-changes and the base stations it hears, never the repeats. Turned off, it sends nothing and drops
-what is queued. The heartbeat carries a short ITC summary while a dongle does ITC.
+Each wayside unit's state is tracked, and only its changes are kept for looking back
+(`state/itc/changes/YYYY-MM-DD.jsonl`, kept as long as the messages). `status` shows the channels,
+the bases heard and the message counts; the status page's ITC tab shows those, the units and their
+changes, and a rail layout (see below). ITC messages describe railroad operations: they stay on
+the receiver. When the owner turns ITC upload on for the receiver on the website (`/config`
+`itc.upload`, contract v1.18, [docs/contract-v1.18.md](docs/contract-v1.18.md)), the receiver also
+sends each wayside unit's state changes and the base stations it hears, never the repeats. Turned
+off, it sends nothing and drops what is queued. The heartbeat carries a short ITC summary while a
+dongle does ITC.
 The role's settings (`sdr.devices` entry for `itc`): `channels` (fixed ITC channel numbers instead
 of beacons), `serve` (the feed's address; empty turns it off), `keep_days`, `center_mhz`.
 
@@ -137,6 +140,22 @@ For setting up, and for recordings, the receiver has ITC commands that use a don
 
 `crates/itc/messages.md` describes the messages; `crates/itc/findings.md` how the protocol was
 worked out.
+
+## Status page
+
+Every receiver serves a read-only status page (`web` in the settings; port 8080 by default). Its
+tabs look back over the last hour to 7 days, from the event history the receiver keeps:
+
+| Tab | What |
+|---|---|
+| Status | link, headend, scanner, dongles, signal, every event and recording, the receiver log; Settings in the Mac app |
+| EOT, HOT | bursts over time, how often they decode at each signal level, corrected bits, each unit heard |
+| Defect detectors | announcements over time by result (all clear, defect, unconfirmed), each detector heard, recordings, voice profiles |
+| ITC | wayside state changes over time, a rail layout with each signal location in the order trains pass them (worked out as RailSpotting-ITC-Monitor does, without its map), aspects over time, units, base stations, message counts |
+| Voice | calls over time, per channel, transcripts, recordings |
+
+Each tab also shows its dongle, that dongle's noise floor, and the receiver's latest log lines
+about it (kept in memory). The page is reachable by anyone on the network the receiver is on.
 
 ## Tests
 

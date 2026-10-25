@@ -14,6 +14,7 @@ pub mod itc;
 pub mod logging;
 pub mod models;
 pub mod rtl;
+pub mod stats;
 pub mod transcribe;
 pub mod util;
 pub mod wav;
