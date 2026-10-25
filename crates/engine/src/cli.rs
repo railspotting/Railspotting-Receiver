@@ -47,6 +47,13 @@ pub enum Cmd {
     Link,
     /// show what the running service is doing
     Status,
+    /// a screen for the running receiver: status, events and settings, like the Mac app's
+    /// window (needs sudo, or membership of the service's group)
+    Console {
+        /// the receiver's control socket (default: control.sock in its state directory)
+        #[arg(long)]
+        socket: Option<String>,
+    },
     /// list connected RTL-SDR dongles
     SdrList,
     /// record the reference station and transcribe it
@@ -860,6 +867,10 @@ pub fn main_with(argv: Vec<String>, out: &mut dyn Write) -> i32 {
     if args.config == "receiver.json" && !config.exists() && Path::new(INSTALLED_CONFIG).exists() {
         config = PathBuf::from(INSTALLED_CONFIG);
     }
+    // the console draws on the terminal, so nothing may log to it
+    if let Some(Cmd::Console { socket }) = &args.cmd {
+        return cmd_console(&config, socket.as_deref(), out);
+    }
     // warnings are printed even before the configured log level is known
     crate::logging::setup("WARNING");
     let settings = match Settings::load(&config) {
@@ -879,6 +890,7 @@ pub fn main_with(argv: Vec<String>, out: &mut dyn Write) -> i32 {
     match &args.cmd {
         Some(Cmd::SdrList) => cmd_sdr_list(&settings, &(Arc::new(crate::rtl::list_devices) as Lister), out),
         Some(Cmd::Status) => cmd_status(&settings, out),
+        Some(Cmd::Console { socket }) => cmd_console(&config, socket.as_deref(), out),
         Some(Cmd::TestTranscription) => cmd_test_transcription(&settings, 60.0, out),
         Some(Cmd::Detector { action }) => cmd_detector(&settings, action, out),
         Some(Cmd::Itc { action }) => crate::itc::cmd_itc(action, out),
@@ -893,11 +905,35 @@ pub fn main_with(argv: Vec<String>, out: &mut dyn Write) -> i32 {
 
 use std::sync::Arc;
 
+/// The console, for the receiver whose receiver.json is `config` (or on `socket`).
+#[cfg(unix)]
+fn cmd_console(config: &Path, socket: Option<&str>, out: &mut dyn Write) -> i32 {
+    let path = match socket {
+        Some(s) => PathBuf::from(s),
+        None => match Settings::load(config) {
+            Ok(s) => s.state_dir().join(crate::control::SOCKET),
+            Err(e) => {
+                let _ = writeln!(out, "{e}");
+                return 1;
+            }
+        },
+    };
+    railspotting_console::run(&path, out)
+}
+
+#[cfg(not(unix))]
+fn cmd_console(_config: &Path, _socket: Option<&str>, out: &mut dyn Write) -> i32 {
+    let _ = writeln!(out, "the console needs a Unix system");
+    1
+}
+
 fn run(settings: Settings, opts: AgentOptions) -> i32 {
-    // no token: the status page this serves is read only. Settings change in receiver.json, or
-    // in the desktop app's own window.
+    // no token: the status page this serves is read only. Settings change in receiver.json, from
+    // the console (`console`, over a socket only this machine's admins can open), or in the
+    // desktop app's own window.
     let _ = std::fs::remove_file(settings.state_dir().join("web_token")); // left by older versions
-    match crate::handle::Engine::start(settings, crate::handle::EngineOptions { agent: opts, token: None }) {
+    let control = Some(settings.state_dir().join(crate::control::SOCKET));
+    match crate::handle::Engine::start(settings, crate::handle::EngineOptions { agent: opts, token: None, control }) {
         Ok(engine) => {
             wait_for_term();
             log::info!("stopping");

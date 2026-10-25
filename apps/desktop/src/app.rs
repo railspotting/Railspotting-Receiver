@@ -87,7 +87,7 @@ fn start_engine(app: &AppHandle, core: &Arc<Core>) {
     if librtlsdr_missing {
         log::warn!("librtlsdr not found; install it with: brew install librtlsdr");
     }
-    let opts = EngineOptions { agent: AgentOptions::default(), token: Some(core.token.clone()) };
+    let opts = EngineOptions { agent: AgentOptions::default(), token: Some(core.token.clone()), control: None };
     match Engine::start(settings, opts) {
         Ok(engine) => {
             let rx = engine.subscribe();

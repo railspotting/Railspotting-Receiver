@@ -6,6 +6,8 @@
 
 pub mod agent;
 pub mod cli;
+#[cfg(unix)]
+pub mod control;
 pub mod device;
 pub mod handle;
 pub mod itc;

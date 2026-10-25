@@ -32,6 +32,7 @@ The receiver is a Rust workspace (version 2.x). It runs in production on small L
 | `crates/itc` | ITC (220 MHz PTC) decoding: channel plan, channelizer, bursts, pi/4-DQPSK, link layer (header, RS(16,12), CRC), messages, feed, survey; its `messages.md` and `findings.md` |
 | `crates/detect` | detector templates and assessment, v1.5 detector objects, transcript text parsing |
 | `crates/store` | upload outbox and history (SQLite), identity, automatic dongle roles, USB presence |
+| `crates/console` | the terminal console (`railspotting-receiver console`): a ratatui screen over the running receiver's control socket |
 | `crates/scanner` | SR30C driver, scanner monitor, focus and roles, checks, headend commands, a fake SR30C |
 | `crates/engine` | the receiver: agent loops, librtlsdr devices, speech (feature `speech`), dashboard web server, CLI |
 | `apps/receiver` | the `railspotting-receiver` binary (a thin `main` over the engine's CLI) |
@@ -107,8 +108,9 @@ cargo clippy -p <crate> --tests
   October 2026). The headend can set the order (`sdr_role_order`, proposed contract v1.17, `docs/contract-v1.17.md`) and
   the receiver writes it into receiver.json.
 - **The receiver's status page is never editable.** Settings change only from the local console
-  (receiver.json, the CLI) or the Mac app's own window, which gets a per-run token injected by
-  the app. Don't add a way for a browser to get the token (no settings switch, no token in the
+  (receiver.json, or `railspotting-receiver console` over `state/control.sock`, a Unix socket for
+  the service user, its group and root) or the Mac app's own window, which gets a per-run token
+  injected by the app. Don't add a way for a browser to get the token (no settings switch, no token in the
   address, no token file). An owner decision of October 2026.
 - **librtlsdr is GPL.** It is loaded at run time with `libloading` and never linked or vendored.
   Keep it that way unless the maintainers decide otherwise. The one exception, an owner decision of

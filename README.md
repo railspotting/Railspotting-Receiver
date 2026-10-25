@@ -18,7 +18,7 @@ without hardware, and the tests run without the service. Security problems: see 
 
 | Path | What |
 |---|---|
-| `crates/` | shared libraries for every platform: `common` (settings), `proto` (signed API, linking), `dsp` (channelizer, bursts, EOT decoder, simulator), `itc` (ITC decoding), `detect` (detector templates), `store` (outbox, history, identity, roles), `scanner` (SR30C), `engine` (the receiver: agent, dongles, speech, dashboard) |
+| `crates/` | shared libraries for every platform: `common` (settings), `proto` (signed API, linking), `dsp` (channelizer, bursts, EOT decoder, simulator), `itc` (ITC decoding), `detect` (detector templates), `store` (outbox, history, identity, roles), `scanner` (SR30C), `console` (the terminal console), `engine` (the receiver: agent, dongles, speech, dashboard) |
 | `apps/receiver` | the headless `railspotting-receiver` binary (Linux service, or a terminal on macOS) |
 | `apps/desktop` | the macOS menu bar app (in development; see `apps/desktop/MACOS_APP.md`) |
 | `packaging/linux` | systemd unit, installer, Proxmox LXC guide |
@@ -54,8 +54,33 @@ For a Proxmox container, follow `packaging/linux/lxc-setup.md`. Otherwise, after
 This installs the binary in `/opt/railspotting-receiver/bin`, creates `receiver.json` from
 `receiver.json.example` if there is none, downloads the speech model, and starts the
 `railspotting-receiver` systemd service. Running it again updates the binary and keeps settings,
-identity and history. On first start the receiver shows a link code (in the log and on the status
-page at port 8080) to add it to an account.
+identity and history. On first start the receiver shows a link code (in the log, on the status
+page at port 8080 and in the console) to add it to an account.
+
+## The console (Linux)
+
+The status page is read only. To see and change the running receiver from the machine itself,
+open the console, a terminal screen like the Mac app's window:
+
+    sudo railspotting-console
+
+(The installer adds this name; otherwise `railspotting-receiver console`.) It has three tabs:
+
+- **Status:** link state and code, heartbeat, uploads and queue, each dongle (serial, state, where
+  its job came from, centre, gain, channels receiving), and the scanner.
+- **Events:** the latest events, newest first.
+- **Settings:** the name on the headend, transcribing other calls, channels whose recordings are
+  all kept, the role order (move roles up and down, switch them off) and a job for each connected
+  dongle. `s` saves; the receiver restarts with the change and puts the old settings back if it
+  won't start.
+
+`e` opens the whole `receiver.json` in `$EDITOR` (nano or vi if unset). The receiver checks it,
+restarts with it and keeps the old file if it won't start. `l` starts linking again.
+
+It talks to the receiver over `state/control.sock`, a socket only the service user, its group and
+root can open: run it with `sudo`, or add yourself to the `railspotting` group
+(`sudo usermod -aG railspotting $USER`, then log in again). Nothing on the network can reach it.
+Edits made in the console are written by the receiver itself, so `receiver.json` keeps its owner.
 
 ## Files
 
@@ -78,11 +103,11 @@ Anything left out takes the default shown in `receiver.json.example`.
 | `serial_port`, `baud`, `scanner_role` | the SR30C scanner: `"auto"` finds it, `"none"` turns it off. With `scanner_role` `"auto"`, EOT comes first: the scanner holds EOT, or HOT when both an EOT and a VHF dongle are connected |
 | `transcription` | speech recognition of detector mileposts (needs the speech build and model) |
 | `transcribe_other_calls` | also transcribe calls that are not detector announcements (slow on small CPUs) |
-| `web` | the status page: `enabled`, `bind`, `port`. The page is always read only: settings change here, in receiver.json, or in the Mac app |
+| `web` | the status page: `enabled`, `bind`, `port`. The page is always read only: settings change here, in the console (`railspotting-receiver console`), or in the Mac app |
 | `auto_eot_focus` | when the scanner turns to EOT telemetry by itself |
 | `sdr.devices` | dongles by serial with role (`eot`, `itc`, `vhf`, `hot`), gain and sample rate; empty means each role takes a connected dongle by itself, in `sdr.role_order` |
 | `sdr.role_order` | which roles take free dongles, first to last; a role left out gets none. Default `["eot", "itc", "vhf", "hot"]`: EOT, then ITC (220 MHz PTC), then VHF (voice: defect detectors and road calls, which share the channels), then HOT. The headend can set it (`sdr_role_order`); the receiver then writes it here |
-| `sdr.assign` | a job for each dongle by serial: a role, or `"off"` to leave it unused (`{"30001111": "itc"}`). Dongles not named take roles in `sdr.role_order`; a job chosen on the website wins. The Mac app's Settings card sets it |
+| `sdr.assign` | a job for each dongle by serial: a role, or `"off"` to leave it unused (`{"30001111": "itc"}`). Dongles not named take roles in `sdr.role_order`; a job chosen on the website wins. The console and the Mac app's Settings card set it |
 | `sdr.margin_db`, `sdr.min_windows` | how far above the noise, and for how long, a signal must be to count |
 | `sdr.record_bursts`, `sdr.record_keep`, `sdr.voice_clip_keep` | recordings kept in `state/` |
 | `watch_clips` | channels (MHz) whose every recording is kept in `state/watch_clips`, for detectors that have no template yet |
