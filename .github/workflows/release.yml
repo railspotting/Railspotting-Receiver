@@ -1,0 +1,79 @@
+name: Release
+
+# A v* tag (tools/release.sh) builds the macOS app and publishes a GitHub Release: the .dmg for
+# new installs, and the signed update bundle and latest.json that installed apps update from.
+# Signing: ad-hoc until the Apple secrets are set (packaging/macos/README.md), then Developer ID
+# with notarization, with no change here.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos:
+    name: macOS app (Apple Silicon)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version from the tag
+        id: v
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "the tag must look like v1.2.3" >&2; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          # the app and the engine report this version (the source says the last major.minor.0)
+          sed -i '' "/^\[workspace.package\]/,/^\[/ s/^version = .*/version = \"$v\"/" Cargo.toml
+          grep -q "^version = \"$v\"" Cargo.toml
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+      - name: Signing identity
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            # the Tauri bundler imports the certificate, signs, notarizes and staples
+            for k in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+              if [ -n "${!k}" ]; then
+                d="EOF_$RANDOM$RANDOM"
+                { echo "$k<<$d"; echo "${!k}"; echo "$d"; } >> "$GITHUB_ENV"
+              fi
+            done
+            echo "Signing with the Developer ID certificate"
+          else
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            echo "::warning::No Apple certificate in the repository secrets: the app is ad-hoc signed and not notarized"
+          fi
+      - name: Build
+        working-directory: apps/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: cargo tauri build --bundles app,dmg
+      - name: Release notes
+        run: |
+          # the tag's message, which tools/release.sh writes
+          git fetch -q --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.md
+          [ -s notes.md ] || echo "RailSpotting ${{ steps.v.outputs.version }}" > notes.md
+      - name: Release files
+        run: packaging/macos/release-files.sh "${{ steps.v.outputs.version }}" notes.md out
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/* --title "RailSpotting ${{ steps.v.outputs.version }}" --notes-file notes.md --verify-tag
