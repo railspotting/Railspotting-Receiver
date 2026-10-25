@@ -281,6 +281,11 @@ Update this section as phases complete: what was done, what was measured, what i
     Status tab.
   - Tested: validation of the new keys, `sdr.assign` replaced whole on save, receiver.json jobs
     with the website winning, and the whole-file round trip with the restore.
+  - Done: the window does everything the receiver's web page does, plus Settings. The page is
+    the engine's own dashboard, so its tabs (Status, EOT, Defect detectors, ITC, HOT, Voice) come
+    with each build. Recordings' Download button now saves to ~/Downloads under the page's name
+    (numbered when taken, as a browser does) and shows the file in Finder; only the receiver's own
+    files are saved.
   - Left: first-run steps inside the dashboard (librtlsdr Check Again, model progress, dongle
     identification beyond the existing chips), notifications, sleep and wake, and window
     close and Pause/Resume tested by hand.

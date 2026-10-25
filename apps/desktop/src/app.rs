@@ -15,7 +15,7 @@ use railspotting_engine::models;
 use serde_json::Value;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
-use tauri::webview::{NewWindowResponse, WebviewBuilder};
+use tauri::webview::{DownloadEvent, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
 use tauri::{ActivationPolicy, AppHandle, LogicalPosition, LogicalSize, Manager, RunEvent, Url, WebviewUrl, Window, WindowEvent};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
@@ -183,10 +183,45 @@ fn build_window(app: &AppHandle, core: &Arc<Core>) -> tauri::Result<Window> {
     let url = core.dashboard_url().map(WebviewUrl::External).unwrap_or_else(|| WebviewUrl::App("index.html".into()));
     // the page reads the token from here; it is only ever loaded from 127.0.0.1 (see on_navigation)
     let script = format!("window.RAILSPOTTING_TOKEN = {};", serde_json::to_string(&core.token).unwrap_or_default());
-    let (nav, new_win) = (core.clone(), core.clone());
+    let (nav, new_win, dl) = (core.clone(), core.clone(), core.clone());
     let (nav_app, new_app) = (app.clone(), app.clone());
+    // where each download is going, so it can be shown in Finder when done (macOS doesn't say)
+    let saving: Arc<Mutex<Vec<(Url, std::path::PathBuf)>>> = Arc::default();
     let dashboard = WebviewBuilder::new(DASHBOARD, url)
         .initialization_script(script)
+        .on_download(move |_, event| match event {
+            DownloadEvent::Requested { url, destination } => {
+                let downloads = std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join("Downloads"));
+                let to = downloads.and_then(|d| site::download_path(&url, dl.port(), destination, &d, &|p| p.exists()));
+                match to {
+                    Some(to) => {
+                        log::info!("saving {} to {}", url.path(), to.display());
+                        *destination = to.clone();
+                        lock(&saving).push((url, to));
+                        true
+                    }
+                    None => {
+                        log::warn!("download from {url} refused: the window saves only the receiver's own files");
+                        false
+                    }
+                }
+            }
+            DownloadEvent::Finished { url, success, .. } => {
+                let to = {
+                    let mut s = lock(&saving);
+                    s.iter().position(|(u, _)| *u == url).map(|i| s.remove(i).1)
+                };
+                match (success, to) {
+                    (true, Some(to)) => {
+                        let _ = std::process::Command::new("/usr/bin/open").arg("-R").arg(&to).spawn();
+                    }
+                    (false, _) => log::warn!("download of {} failed", url.path()),
+                    _ => {}
+                }
+                true
+            }
+            _ => true,
+        })
         .on_navigation(move |url| follow(&nav_app, &nav, site::from_dashboard(url, nav.port()), url))
         .on_new_window(move |url, _| {
             let route = match site::from_dashboard(&url, new_win.port()) {
