@@ -50,6 +50,9 @@ and staples, with no change to it.
   receiver needs, which is also why the Mac App Store is out of scope.
 - **librtlsdr from Homebrew** (`brew install librtlsdr`). It is GPL and loaded at run time, never
   bundled.
+- **`entitlements.plist`**, signed into release builds: `disable-library-validation`, because the
+  hardened runtime otherwise refuses Homebrew's librtlsdr (signed by nobody the app knows) and no
+  dongle works, as in 2.0.1; and `personal-information.location` for the Live Map's Here button.
 
 ## Testing on this Mac
 

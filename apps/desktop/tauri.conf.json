@@ -27,7 +27,8 @@
       "icons/icon.icns"
     ],
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "entitlements": "../../packaging/macos/entitlements.plist"
     },
     "createUpdaterArtifacts": true
   },
