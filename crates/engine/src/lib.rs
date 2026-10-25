@@ -8,6 +8,7 @@ pub mod agent;
 pub mod cli;
 pub mod device;
 pub mod handle;
+pub mod itc;
 pub mod logging;
 pub mod models;
 pub mod rtl;

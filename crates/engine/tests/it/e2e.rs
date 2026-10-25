@@ -52,7 +52,10 @@ fn simulate_uploads_signed_events_to_the_headend() {
     let hb = st.heartbeats.last().unwrap();
     assert_eq!(hb["agent_version"], railspotting_common::AGENT_VERSION);
     let caps = &hb["capabilities"];
-    assert!(caps["receivers"].as_array().unwrap().len() == 3);
+    // the scanner and three dongles: EOT, ITC and VHF (the first three roles)
+    let receivers = caps["receivers"].as_array().unwrap();
+    assert_eq!(receivers.len(), 4);
+    assert!(receivers.iter().any(|r| r["role"] == "itc"), "{receivers:?}");
     assert!(scanner && caps_now["receivers"][0]["product"] == "SR30C"); // the simulated scanner
     assert_eq!(caps_now["features"]["simultaneous_voice"], json!(true));
     assert!(!hb.to_string().contains("SIM0000"), "dongle serials are never sent");

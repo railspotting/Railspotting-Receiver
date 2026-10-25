@@ -278,14 +278,14 @@ fn agent_assigns_and_says_which_antenna() {
     let opts = || AgentOptions { lister: Some(lister(present.clone())), ..Default::default() };
     let agent = make_agent_with(t.path(), Some(&h), Some(&c), auto(), true, opts());
     assert!(agent.auto_sdr);
-    assert_eq!(agent.sdrs().iter().map(|s| s.with(|x| x.serial.clone())).collect::<Vec<_>>(), ["", "", ""]);
+    assert_eq!(agent.sdrs().iter().map(|s| s.with(|x| x.serial.clone())).collect::<Vec<_>>(), ["", "", "", ""]);
     agent.sdr_scan_tick(true);
     let s = agent.sdrs();
-    // EOT is filled first, then VHF
+    // EOT is filled first, then ITC (then VHF, then HOT)
     assert_eq!(s[0].with(|x| (x.role.clone(), x.serial.clone())), ("eot".into(), "30001111".into()));
-    assert_eq!(s[1].with(|x| (x.role.clone(), x.serial.clone())), ("vhf".into(), "30002222".into()));
+    assert_eq!(s[1].with(|x| (x.role.clone(), x.serial.clone())), ("itc".into(), "30002222".into()));
     assert!(log.text().contains("UHF SDR (EOT) is the dongle with serial 30001111; connect the UHF antenna"));
-    assert!(log.text().contains("VHF SDR (voice) is the dongle with serial 30002222; connect the VHF antenna"));
+    assert!(log.text().contains("220 MHz SDR (ITC) is the dongle with serial 30002222; connect the 220 MHz antenna"));
     let st = agent.status();
     assert_eq!(st["sdrs"][0]["assigned"], "automatic");
     assert!(st["sdrs"][0]["antenna"].as_str().unwrap().contains("shorter"));
@@ -296,7 +296,7 @@ fn agent_assigns_and_says_which_antenna() {
 
     // the scan repeats every 10 s; a restart uses the saved roles straight away
     let again = make_agent_with(t.path(), Some(&h), Some(&c), auto(), true, opts());
-    assert_eq!(again.sdrs().iter().map(|s| s.with(|x| x.serial.clone())).collect::<Vec<_>>(), ["30001111", "30002222", ""]);
+    assert_eq!(again.sdrs().iter().map(|s| s.with(|x| x.serial.clone())).collect::<Vec<_>>(), ["30001111", "30002222", "", ""]);
 }
 
 #[test]
@@ -331,7 +331,7 @@ fn simulation_uses_automatic_roles() {
     let h = headend(&c);
     let agent = make_agent_with(t.path(), Some(&h), Some(&c), auto(), true, AgentOptions { simulate: true, ..Default::default() });
     agent.sdr_scan_tick(true);
-    assert_eq!(agent.sdrs().iter().map(|s| s.with(|x| x.serial.clone())).collect::<Vec<_>>(), ["SIM00001", "SIM00002", ""]);
+    assert_eq!(agent.sdrs().iter().map(|s| s.with(|x| x.serial.clone())).collect::<Vec<_>>(), ["SIM00001", "SIM00002", "SIM00003", ""]);
 }
 
 // USB presence ------------------------------------------------------------------------------------
@@ -403,10 +403,10 @@ fn automatic_roles_use_sysfs() {
                                 AgentOptions { lister: Some(no_librtlsdr), usb_lister: Some(usb_lister(usb)), ..Default::default() });
     agent.usb_check_tick(true);
     let got: Vec<_> = agent.sdrs().iter().map(|s| s.with(|x| (x.role.clone(), x.serial.clone(), x.usb_port.clone()))).collect();
-    assert_eq!(got, [("eot".into(), "30001111".into(), Some("1-4".into())), ("vhf".into(), "30002222".into(), Some("1-3".into())),
-                     ("hot".into(), "".into(), None)]);
+    assert_eq!(got, [("eot".into(), "30001111".into(), Some("1-4".into())), ("itc".into(), "30002222".into(), Some("1-3".into())),
+                     ("vhf".into(), "".into(), None), ("hot".into(), "".into(), None)]);
     let saved = read_json(&agent.state_dir.join("sdr_roles.json"));
-    assert_eq!(saved, json!({"eot": "30001111", "vhf": "30002222", "hot": null}));
+    assert_eq!(saved, json!({"eot": "30001111", "itc": "30002222", "vhf": null, "hot": null}));
 }
 
 #[test]
@@ -436,7 +436,7 @@ fn the_headend_chooses_each_dongles_job() {
 
     // streaming as VHF; the owner makes it the EOT dongle on the website
     let dev = Arc::new(CountDev(AtomicUsize::new(0)));
-    agent.sdrs()[1].with(|x| {
+    agent.sdrs()[2].with(|x| {
         x.dev = Some(dev.clone());
         x.streaming = true;
         x.connected = true;
@@ -445,7 +445,7 @@ fn the_headend_chooses_each_dongles_job() {
     cfg["sdr_roles"] = json!({id.clone(): "eot"});
     agent.apply_config(cfg, None);
     let got: Vec<_> = agent.sdrs().iter().map(|s| s.with(|x| (x.role.clone(), x.serial.clone()))).collect();
-    assert_eq!(got, [("eot".into(), "30002222".into()), ("vhf".into(), "".into()), ("hot".into(), "".into())]);
+    assert_eq!(got, [("eot".into(), "30002222".into()), ("itc".into(), "".into()), ("vhf".into(), "".into()), ("hot".into(), "".into())]);
     assert!(log.text().contains(&format!("the headend gives dongle {id} (serial 30002222) the eot job")));
     assert!(log.text().contains("UHF SDR (EOT) is the dongle with serial 30002222 (instead of 30001111, as chosen on the website)"));
     assert!(log.text().contains("VHF SDR (voice) has no dongle now"));
@@ -453,7 +453,8 @@ fn the_headend_chooses_each_dongles_job() {
     let st = agent.status();
     assert!(st["sdrs"][0]["assigned"] == "website" && st["sdrs"][0]["dongle_id"] == json!(id));
 
-    // a second dongle, not named: it fills VHF by itself and is reported with its own ID
+    // a second dongle, not named: it fills the next role in the order (ITC) by itself and is
+    // reported with its own ID
     usb.lock().unwrap().push(json!({"serial": "30003333", "port": "1-4"}));
     agent.usb_check_tick(true);
     assert_eq!(agent.sdrs()[1].with(|x| x.serial.clone()), "30003333");
@@ -472,6 +473,74 @@ fn the_headend_chooses_each_dongles_job() {
     assert_eq!(sa["dongle_ids"]["30003333"], json!(agent.dongle_id("30003333")));
     let text = caps.to_string();
     assert!(!text.contains("30002222") && !text.contains("30003333"), "serials are never sent");
+}
+
+#[test]
+fn the_headend_orders_the_roles_and_receiver_json_keeps_it() {
+    // proposed contract v1.13: /config `sdr_role_order`; roles left out take no dongle. The
+    // receiver writes it into receiver.json so it holds without the headend.
+    let (c, t) = (clock(), Tmp::new("role-order"));
+    let h = headend(&c);
+    let log = Capture::start();
+    let file = t.path().join("receiver.json");
+    std::fs::write(&file, "{\n  \"state_dir\": \"state\",\n  \"sdr\": {\"devices\": [], \"auto_assign\": true}\n}\n").unwrap();
+    let mut st = settings(t.path(), Some(&h), auto());
+    st.path = Some(file.clone());
+    std::fs::create_dir_all(t.path().join("state")).unwrap();
+    std::fs::write(t.path().join("state").join("identity.json"), json!({"device_id": DEVICE_ID, "mac": MAC, "interface": "eth0"}).to_string()).unwrap();
+    let usb = Arc::new(Mutex::new(vec![json!({"serial": "30001111", "port": "1-3"}), json!({"serial": "30002222", "port": "1-4"})]));
+    let agent = railspotting_engine::agent::Agent::new(st, AgentOptions { usb_lister: Some(usb_lister(usb)), clock: Some(c.clock()), ..Default::default() })
+        .expect("agent");
+    agent.usb_check_tick(true);
+    let roles = |a: &railspotting_engine::agent::Agent| a.sdrs().iter().map(|s| s.with(|x| (x.role.clone(), x.serial.clone()))).collect::<Vec<_>>();
+    assert_eq!(roles(&agent)[1], ("itc".into(), "30002222".into()));
+
+    // the owner puts VHF first and switches ITC off
+    let mut cfg = agent.config();
+    cfg["sdr_role_order"] = json!(["vhf", "eot", "hot"]);
+    agent.apply_config(cfg, None);
+    let got = roles(&agent);
+    assert_eq!(got[1], ("itc".into(), "".into()), "ITC is off");
+    assert_eq!(got[2], ("vhf".into(), "30002222".into()), "its dongle went to VHF");
+    assert_eq!(got[0], ("eot".into(), "30001111".into()), "EOT keeps its own");
+    assert!(log.text().contains("dongle role order from the website: vhf, eot, hot"));
+    let saved = read_json(&file);
+    assert_eq!(saved["sdr"]["role_order"], json!(["vhf", "eot", "hot"]));
+    assert_eq!(saved["state_dir"], "state", "the rest of receiver.json is kept");
+
+    // a restart reads the same order without the headend
+    let again = railspotting_common::Settings::load(&file).unwrap();
+    assert_eq!(railspotting_store::assign::role_order(again.sdr()), vec!["vhf", "eot", "hot"]);
+}
+
+#[test]
+fn receiver_json_gives_dongles_jobs_and_the_website_wins() {
+    // sdr.assign, set in the app: a job for each dongle by serial; the others stay automatic and
+    // a job named on the website wins
+    let (c, t) = (clock(), Tmp::new("local-roles"));
+    let h = headend(&c);
+    let log = Capture::start();
+    let over = json!({"sdr": {"devices": [], "auto_assign": true, "assign": {"30001111": "vhf", "30003333": "off"}}});
+    let usb = Arc::new(Mutex::new(vec![json!({"serial": "30001111", "port": "1-3"}), json!({"serial": "30002222", "port": "1-4"}),
+                                       json!({"serial": "30003333", "port": "1-5"})]));
+    let agent = make_agent_with(t.path(), Some(&h), Some(&c), over, true,
+                                AgentOptions { usb_lister: Some(usb_lister(usb)), ..Default::default() });
+    agent.usb_check_tick(true);
+    let roles = || agent.sdrs().iter().map(|s| s.with(|x| (x.role.clone(), x.serial.clone()))).collect::<Vec<_>>();
+    assert_eq!(roles(), [("eot".into(), "30002222".into()), ("itc".into(), "".into()), ("vhf".into(), "30001111".into()),
+                         ("hot".into(), "".into())]);
+    assert!(log.text().contains("receiver.json gives dongle 30001111 the vhf job"));
+    let st = agent.status();
+    assert_eq!(st["sdrs"][2]["assigned"], "receiver.json");
+    assert_eq!(st["sdr_assign"]["off"], json!(["30003333"]));
+
+    // the website names 30001111 for EOT: that wins over receiver.json
+    let mut cfg = agent.config();
+    cfg["sdr_roles"] = json!({agent.dongle_id("30001111"): "eot"});
+    agent.apply_config(cfg, None);
+    let got = roles();
+    assert_eq!(got[0], ("eot".into(), "30001111".into()));
+    assert_eq!(agent.status()["sdrs"][0]["assigned"], "website");
 }
 
 #[test]

@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/common", "crates/proto", "crates/dsp", "crates/detect", "crates/store", "crates/scanner",
+    "crates/common", "crates/proto", "crates/dsp", "crates/detect", "crates/store", "crates/scanner", "crates/itc",
     "crates/engine",
     "apps/receiver",
     "apps/desktop",
@@ -9,7 +9,7 @@ members = [
 # apps/desktop (the Tauri app) is in `members` but stays out of default-members: a plain
 # `cargo build` on a Linux appliance must never build the desktop app.
 default-members = [
-    "crates/common", "crates/proto", "crates/dsp", "crates/detect", "crates/store", "crates/scanner",
+    "crates/common", "crates/proto", "crates/dsp", "crates/detect", "crates/store", "crates/scanner", "crates/itc",
     "crates/engine",
     "apps/receiver",
 ]

@@ -21,6 +21,7 @@ qrcode = { version = "0.14.1", default-features = false }
 railspotting-common = { version = "2.0.0", path = "../common" }
 railspotting-detect = { version = "2.0.0", path = "../detect" }
 railspotting-dsp = { version = "2.0.0", path = "../dsp" }
+railspotting-itc = { version = "2.0.0", path = "../itc" }
 railspotting-proto = { version = "2.0.0", path = "../proto" }
 railspotting-scanner = { version = "2.0.0", path = "../scanner" }
 railspotting-store = { version = "2.0.0", path = "../store" }

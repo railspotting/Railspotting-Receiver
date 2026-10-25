@@ -2,7 +2,8 @@
 
 Listens to railroad radio with RTL-SDR dongles (and optionally a Uniden SR30C scanner), detects
 voice calls, end-of-train (EOT) telemetry and defect detector announcements, and reports them to
-the RailSpotting headend.
+the RailSpotting headend. With a 220 MHz dongle it also decodes ITC, the radio system that carries
+positive train control (PTC) messages, and keeps what it hears on the receiver.
 
 This is the Rust receiver, version 2.x.
 
@@ -16,7 +17,7 @@ without hardware, and the tests run without the service. Security problems: see 
 
 | Path | What |
 |---|---|
-| `crates/` | shared libraries for every platform: `common` (settings), `proto` (signed API, linking), `dsp` (channelizer, bursts, EOT decoder, simulator), `detect` (detector templates), `store` (outbox, history, identity, roles), `scanner` (SR30C), `engine` (the receiver: agent, dongles, speech, dashboard) |
+| `crates/` | shared libraries for every platform: `common` (settings), `proto` (signed API, linking), `dsp` (channelizer, bursts, EOT decoder, simulator), `itc` (ITC decoding), `detect` (detector templates), `store` (outbox, history, identity, roles), `scanner` (SR30C), `engine` (the receiver: agent, dongles, speech, dashboard) |
 | `apps/receiver` | the headless `railspotting-receiver` binary (Linux service, or a terminal on macOS) |
 | `apps/desktop` | the macOS menu bar app (in development; see `apps/desktop/MACOS_APP.md`) |
 | `packaging/linux` | systemd unit, installer, Proxmox LXC guide |
@@ -76,12 +77,36 @@ Anything left out takes the default shown in `receiver.json.example`.
 | `serial_port`, `baud`, `scanner_role` | the SR30C scanner: `"auto"` finds it, `"none"` turns it off. With `scanner_role` `"auto"`, EOT comes first: the scanner holds EOT, or HOT when both an EOT and a VHF dongle are connected |
 | `transcription` | speech recognition of detector mileposts (needs the speech build and model) |
 | `transcribe_other_calls` | also transcribe calls that are not detector announcements (slow on small CPUs) |
-| `web` | the status page: `enabled`, `bind`, `port`. `settings_api: true` lets a tool on the same machine change settings through it, with the token the receiver writes to `state/web_token` |
+| `web` | the status page: `enabled`, `bind`, `port`. The page is always read only: settings change here, in receiver.json, or in the Mac app |
 | `auto_eot_focus` | when the scanner turns to EOT telemetry by itself |
-| `sdr.devices` | dongles by serial with role (`vhf`, `eot`), gain and sample rate; empty means each role takes a connected dongle by itself, EOT first, then VHF (voice: detectors and road calls) |
+| `sdr.devices` | dongles by serial with role (`eot`, `itc`, `vhf`, `hot`), gain and sample rate; empty means each role takes a connected dongle by itself, in `sdr.role_order` |
+| `sdr.role_order` | which roles take free dongles, first to last; a role left out gets none. Default `["eot", "itc", "vhf", "hot"]`: EOT, then ITC (220 MHz PTC), then VHF (voice: defect detectors and road calls, which share the channels), then HOT. The headend can set it (`sdr_role_order`); the receiver then writes it here |
+| `sdr.assign` | a job for each dongle by serial: a role, or `"off"` to leave it unused (`{"30001111": "itc"}`). Dongles not named take roles in `sdr.role_order`; a job chosen on the website wins. The Mac app's Settings card sets it |
 | `sdr.margin_db`, `sdr.min_windows` | how far above the noise, and for how long, a signal must be to count |
 | `sdr.record_bursts`, `sdr.record_keep`, `sdr.voice_clip_keep` | recordings kept in `state/` |
 | `watch_clips` | channels (MHz) whose every recording is kept in `state/watch_clips`, for detectors that have no template yet |
+
+## ITC (220 MHz PTC)
+
+A dongle with the `itc` role (a 220 MHz antenna, a whip about 33 cm long) decodes ITC on its own:
+it listens to the national channel (102) for base station beacons, adds the local channel of
+every base heard, and writes each decoded message to `state/itc/YYYY-MM-DD.jsonl` (kept for 7
+days) and to a local feed on 127.0.0.1:8221 that a monitor (RailSpotting-ITC-Monitor) can read.
+`status` and the status page show the channels, the bases heard and the message counts. ITC
+messages describe railroad operations: they stay on the receiver and are not sent to the headend.
+The role's settings (`sdr.devices` entry for `itc`): `channels` (fixed ITC channel numbers instead
+of beacons), `serve` (the feed's address; empty turns it off), `keep_days`, `center_mhz`.
+
+For setting up, and for recordings, the receiver has ITC commands that use a dongle directly
+(stop the service first, or name a dongle it does not hold with `--serial`):
+
+    railspotting-receiver itc survey                    # what is heard here, and the settings to use
+    railspotting-receiver itc decode --auto             # find the channels, then JSON lines on stdout
+    railspotting-receiver itc decode --input a.cu8      # a recording
+    railspotting-receiver itc record --out a.cu8        # raw samples to decode later
+
+`crates/itc/messages.md` describes the messages; `crates/itc/findings.md` how the protocol was
+worked out.
 
 ## Tests
 

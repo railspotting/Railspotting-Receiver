@@ -19,7 +19,7 @@ use railspotting_scanner::monitor::Hooks;
 use railspotting_scanner::scanner::{system_finder, system_opener, BANDS_MHZ};
 use railspotting_scanner::{desired_role, AutoEotWatch, CommandHost, CommandRunner, FocusManager, RoleManager,
                            ScannerError, ScannerMonitor, Timing};
-use railspotting_store::assign::{auto_mode, role_configs, RoleAssigner};
+use railspotting_store::assign::{auto_mode, parse_role_order, role_configs, role_order, RoleAssigner};
 use railspotting_store::history::History;
 use railspotting_store::identity::{load_or_create_identity, save_identity, valid_device_id, SYS_NET};
 use railspotting_store::outbox::Outbox;
@@ -46,7 +46,8 @@ pub const TT_RESULT: &str = "transcription_test.json";
 pub const LINK_TRIGGER: &str = "start_link";
 pub const LINK_IDLE_S: f64 = 5.0;
 pub const INSTALLED_CONFIG: &str = "/opt/railspotting-receiver/receiver.json";
-pub const SIM_SERIALS: [&str; 2] = ["SIM00001", "SIM00002"];
+// one simulated dongle each for EOT, ITC and VHF (the first three roles); HOT stays empty
+pub const SIM_SERIALS: [&str; 3] = ["SIM00001", "SIM00002", "SIM00003"];
 pub const SDR_SCAN_S: f64 = 10.0; // dongle list through librtlsdr, when sysfs can't be read
 pub const USB_CHECK_S: f64 = 2.0; // USB presence through sysfs (touches no device)
 
@@ -389,7 +390,14 @@ impl Agent {
                 SdrHandle::new(SdrSource::new(d, &sdr, &state_dir, emit.clone(), dsp_tr.clone(), clock.clone()), factory.clone())
             }).collect();
             let roles: Vec<String> = sdrs.iter().map(|s| s.with(|x| x.role.clone())).collect();
-            let assigner = if auto_sdr { Some(RoleAssigner::new(&roles, &state_dir, clock.clone())) } else { None };
+            let assigner = if auto_sdr {
+                let mut a = RoleAssigner::new(&roles, &state_dir, clock.clone());
+                // which roles take free dongles, first to last (receiver.json, or the built-in order)
+                a.order = role_order(&sdr);
+                Some(a)
+            } else {
+                None
+            };
             if let Some(a) = &assigner {
                 for (s, serial) in sdrs.iter().zip(&a.assigned) {
                     s.with(|x| x.serial = serial.clone().unwrap_or_default());
@@ -651,6 +659,8 @@ impl Agent {
             log::warn!("could not save the channel plan: {e}");
         }
         self.check_detectors(&cfg);
+        // the order roles take free dongles in, from the website (proposed v1.13)
+        self.apply_role_order(&cfg);
         // dongle jobs chosen on the website (v1.11)
         if self.assigner.is_some() {
             let present = lock(&self.present_serials).clone();
@@ -663,6 +673,39 @@ impl Agent {
         if old.as_ref() != cfg.get("config_version") {
             log::info!("channel plan version {} applied ({} channels)", value_str_opt(cfg.get("config_version")), chans.len());
         }
+    }
+
+    /// The website's order for roles taking free dongles (`sdr_role_order` in /config, proposed
+    /// contract v1.13): a role left out takes none. It is also written into receiver.json, so it
+    /// holds when the headend is out of reach.
+    fn apply_role_order(&self, cfg: &Value) {
+        let Some(assigner) = &self.assigner else { return };
+        let Some(order) = cfg.get("sdr_role_order").and_then(parse_role_order) else { return };
+        {
+            let mut a = lock(assigner);
+            if a.order == order {
+                return;
+            }
+            log::info!("dongle role order from the website: {}", if order.is_empty() { "none".to_string() } else { order.join(", ") });
+            a.order = order.clone();
+        }
+        if let Err(e) = self.save_role_order(&order) {
+            log::warn!("could not write the role order into receiver.json: {e}");
+        }
+    }
+
+    /// `sdr.role_order` in receiver.json, the rest of the file as it was.
+    fn save_role_order(&self, order: &[String]) -> Result<(), String> {
+        let Some(path) = &self.settings.path else { return Ok(()) };
+        let mut raw: Value = match std::fs::read_to_string(path) {
+            Ok(t) => serde_json::from_str(&t).map_err(|e| format!("{}: {e}", path.display()))?,
+            Err(_) => json!({}),
+        };
+        let Some(root) = raw.as_object_mut() else { return Err(format!("{} is not a JSON object", path.display())) };
+        let sdr = root.entry("sdr").or_insert_with(|| json!({}));
+        let Some(sdr) = sdr.as_object_mut() else { return Err(format!("{}: sdr is not an object", path.display())) };
+        sdr.insert("role_order".into(), json!(order));
+        railspotting_common::write_atomic(path, (json_dumps_indent(&raw, 2) + "\n").as_bytes()).map_err(|e| format!("{}: {e}", path.display()))
     }
 
     /// API contract v1.5 section 5: hand the headend's detector list to the transcriber, and
@@ -1560,14 +1603,37 @@ impl Agent {
 
     /// The headend's job for each plugged-in dongle it names (`sdr_roles` in /config), by serial.
     /// Jobs this receiver has no role for are left out.
-    fn chosen_roles(&self, present: &[String]) -> std::collections::BTreeMap<String, String> {
+    fn website_roles(&self, present: &[String]) -> std::collections::BTreeMap<String, String> {
         let cfg = self.config();
         let Some(map) = cfg.get("sdr_roles").and_then(Value::as_object) else { return Default::default() };
-        let roles: Vec<String> = self.sdrs().iter().map(|h| h.with(|s| s.role.clone())).collect();
+        let roles = self.role_names();
         present.iter().filter_map(|serial| {
             let role = map.get(&self.dongle_id(serial))?.as_str()?;
             (role == "off" || roles.iter().any(|r| r == role)).then(|| (serial.clone(), role.to_string()))
         }).collect()
+    }
+
+    /// The owner's job for each plugged-in dongle named in receiver.json (`sdr.assign`: serial to
+    /// role, or "off"), set in the app or by hand.
+    fn local_roles(&self, present: &[String]) -> std::collections::BTreeMap<String, String> {
+        let Some(map) = self.settings.sdr().get("assign").and_then(Value::as_object) else { return Default::default() };
+        let roles = self.role_names();
+        present.iter().filter_map(|serial| {
+            let role = map.get(serial)?.as_str()?;
+            (role == "off" || roles.iter().any(|r| r == role)).then(|| (serial.clone(), role.to_string()))
+        }).collect()
+    }
+
+    fn role_names(&self) -> Vec<String> {
+        self.sdrs().iter().map(|h| h.with(|s| s.role.clone())).collect()
+    }
+
+    /// The jobs chosen for plugged-in dongles: receiver.json's, with the website's winning for
+    /// the dongles it names (v1.11).
+    fn chosen_roles(&self, present: &[String]) -> std::collections::BTreeMap<String, String> {
+        let mut out = self.local_roles(present);
+        out.extend(self.website_roles(present));
+        out
     }
 
     /// Plugged-in dongles that have no role: spares, and ones the headend turned off.
@@ -1600,12 +1666,17 @@ impl Agent {
             *p = present.clone();
             changed
         };
+        let website = self.website_roles(&present);
         let chosen = self.chosen_roles(&present);
         let mut a = lock(assigner);
         let choice_changed = a.chosen != chosen;
         if choice_changed {
             for (serial, role) in &chosen {
-                log::info!("the headend gives dongle {} (serial {serial}) the {role} job", self.dongle_id(serial));
+                if website.contains_key(serial) {
+                    log::info!("the headend gives dongle {} (serial {serial}) the {role} job", self.dongle_id(serial));
+                } else {
+                    log::info!("receiver.json gives dongle {serial} the {role} job");
+                }
             }
         }
         a.chosen = chosen;
@@ -1630,12 +1701,20 @@ impl Agent {
                 (s.name.clone(), s.antenna.clone())
             });
             if new.is_empty() {
-                log::info!("{name} has no dongle now: the headend gave serial {} another job",
-                           old.unwrap_or_default());
+                let old = old.unwrap_or_default();
+                let role = a.role_of(i).to_string();
+                if !a.order.is_empty() && !a.order.contains(&role) {
+                    log::info!("{name} has no dongle now: its role is switched off (role order)");
+                } else if website.contains_key(&old) {
+                    log::info!("{name} has no dongle now: the headend gave serial {old} another job");
+                } else {
+                    log::info!("{name} has no dongle now: receiver.json gives serial {old} another job");
+                }
                 continue;
             }
+            let by = if website.contains_key(&new) { "on the website" } else { "in receiver.json" };
             let replacing = match old.filter(|o| !o.is_empty()) {
-                Some(o) if choice_changed => format!(" (instead of {o}, as chosen on the website)"),
+                Some(o) if choice_changed => format!(" (instead of {o}, as chosen {by})"),
                 Some(o) => format!(" (replacing {o}, missing for {:.0} s)", a.release_after_s),
                 None => String::new(),
             };
@@ -1775,7 +1854,8 @@ impl Agent {
             let mut st = st;
             let serial = st.get("serial").and_then(Value::as_str).unwrap_or("").to_string();
             let chosen = self.assigner.as_ref().is_some_and(|a| lock(a).chosen.contains_key(&serial));
-            st.insert("assigned".into(), json!(if chosen { "website" } else { assigned }));
+            let by_website = chosen && self.config().get("sdr_roles").and_then(|m| m.get(self.dongle_id(&serial))).is_some();
+            st.insert("assigned".into(), json!(if by_website { "website" } else if chosen { "receiver.json" } else { assigned }));
             st.insert("dongle_id".into(), if serial.is_empty() { Value::Null } else { json!(self.dongle_id(&serial)) });
             sdr_status.push(Value::Object(st));
             // max(): the first of equal ones
