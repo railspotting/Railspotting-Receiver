@@ -53,6 +53,9 @@ minutes), respecting RailSpotting's rate limits.
   `dongle_id` (`sdr-` and 8 hex digits) and the scanner as a `scanner_id`, so the website can
   choose their jobs without learning their serials.
 - The receiver's **location** is set by the owner on the website; the receiver itself sends none.
+- **ITC** (220 MHz PTC) stays on the receiver unless the owner turns ITC upload on for it on the
+  website. Then it sends wayside units' state changes and the base stations it hears, never the
+  repeats, and RailSpotting never shows them publicly. See [ITC]({{ '/itc/' | relative_url }}).
 
 The local status page (port 8080 on your network) shows more, including dongle serials, but it is
 only reachable on your own network.
