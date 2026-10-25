@@ -803,7 +803,16 @@ impl SdrSource {
             "reference_in_window": p.reference.is_some(),
             "simultaneous": true, "squelch_free": true, "audio": true,
         });
-        v.as_object().cloned().unwrap_or_default()
+        let mut v = v.as_object().cloned().unwrap_or_default();
+        // contract v1.17: ITC channels are numbered apart from the channel plan, so an ITC dongle
+        // leaves the plan's lists out, and it has no audio
+        if self.role == "itc" {
+            for k in ["channels", "uncovered_channels", "reference_in_window"] {
+                v.remove(k);
+            }
+            v.insert("audio".into(), json!(false));
+        }
+        v
     }
 
     pub fn covers_kind(&self, kind: &str, label_word: Option<&str>) -> bool {
