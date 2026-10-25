@@ -176,7 +176,12 @@ fn the_console_changes_settings_over_the_socket() {
     let engine = start(t.path(), &h, None);
     let sock = engine.control_path().expect("console socket");
     let mut con = Client::new(&sock);
-    assert_eq!(con.call("GET", "/api/status", None).unwrap()["device_id"], DEVICE_ID);
+    // the device ID shows once the registration check has run, on its own thread
+    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+    while con.call("GET", "/api/status", None).unwrap()["device_id"] != DEVICE_ID {
+        assert!(std::time::Instant::now() < deadline, "the status never showed the device ID");
+        std::thread::sleep(Duration::from_millis(100));
+    }
     assert_eq!(con.call("GET", "/api/settings", None).unwrap()["label"], "before");
     assert!(con.call("GET", "/", None).unwrap_err().contains("not offered"));
 
