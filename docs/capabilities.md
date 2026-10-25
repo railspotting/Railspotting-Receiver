@@ -57,12 +57,18 @@ the plan.
 
 ## A receiver at a glance
 
+With the default role order (EOT, ITC, VHF, HOT):
+
 | Kit | Covers |
 |---|---|
 | 1 dongle | EOT (decoded) |
-| 2 dongles | EOT + all voice channels, detectors, radio checks |
-| 3 dongles | EOT + voice + HOT |
+| 2 dongles | EOT + ITC |
+| 3 dongles | EOT + ITC + all voice channels, detectors, radio checks |
+| 4 dongles | EOT + ITC + voice + HOT |
 | + scanner | fills what the dongles don't: EOT, HOT or the voice channels |
+
+Without a 220 MHz antenna, switch ITC off in the role order (or move VHF ahead of it), so a second
+dongle takes the voice channels.
 
 The receiver needs little computer: a 4-core Celeron with 2 GB RAM runs two dongles with speech
 recognition. Speech recognition is the heaviest part; turn `transcription` off on very small

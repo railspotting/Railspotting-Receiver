@@ -27,6 +27,7 @@ It recognises:
 <a class="card" href="{{ '/radio-basics/' | relative_url }}"><b>Railroad radio basics</b><span>How trains use radio: road and dispatcher channels, EOT, HOT and defect detectors.</span></a>
 <a class="card" href="{{ '/identifying-signals/' | relative_url }}"><b>How the receiver identifies signals</b><span>Watching many channels at once, decoding EOT, recognising detectors.</span></a>
 <a class="card" href="{{ '/reporting/' | relative_url }}"><b>How reports reach RailSpotting</b><span>Linking, the signed API, the offline outbox, and what is sent.</span></a>
+<a class="card" href="{{ '/eot-hot/' | relative_url }}"><b>EOT and HOT (457 and 452 MHz)</b><span>The end-of-train and head-of-train devices: the signal, the EOT packet and its fields, and how they are decoded.</span></a>
 <a class="card" href="{{ '/itc/' | relative_url }}"><b>ITC (220 MHz PTC)</b><span>The train control radio network: channels, the protocol, wayside signal states, and what is shared.</span></a>
 <a class="card" href="{{ '/capabilities/' | relative_url }}"><b>SDR and receiver capabilities</b><span>Dongle jobs, windows, radio checks, and the SR30C scanner.</span></a>
 <a class="card" href="{{ '/installing/' | relative_url }}"><b>Installing</b><span>Debian or Ubuntu, a Proxmox container, or the macOS app.</span></a>
