@@ -1134,7 +1134,7 @@ function settingsMsg(text, ok) {
 
 function renderSettingsStatus(st) {
   if (!TOKEN) return;
-  const seen = [...new Set([...(st.sdrs || []).map((s) => s.serial), ...((st.sdr_assign || {}).spare || [])].filter(Boolean))].sort();
+  const seen = [...new Set([...(st.sdrs || []).map((s) => s.serial), ...((st.sdr_assign || {}).spare || []), ...((st.sdr_assign || {}).off || [])].filter(Boolean))].sort();
   $("#set-seen").textContent = seen.length ? seen.join(", ") : "none";
   if (seen.join() !== seenSerials.join()) {
     // keep choices being made: redraw from the form, not from what was saved
