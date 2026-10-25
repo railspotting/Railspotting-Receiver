@@ -31,6 +31,8 @@ tauri-plugin-autostart = "2.5.1"
 # the Live Map's Here button: an answer to WebKit's location request (see src/here.rs)
 objc2 = "0.6.5"
 block2 = "0.6.2"
+# Check for Updates: signed builds from GitHub Releases (packaging/macos/README.md)
+tauri-plugin-updater = "2.12.0"
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build RailSpotting.app and copy it to /Applications, for testing on this Mac.
-# Unsigned: fine on the Mac that built it. Signed releases come from release.yml (phase 4).
+# Unsigned: fine on the Mac that built it. Releases come from release.yml (packaging/macos/README.md).
 set -euo pipefail
 cd "$(dirname "$0")/../../apps/desktop"
 cargo tauri build --bundles app

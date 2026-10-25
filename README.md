@@ -20,9 +20,9 @@ without hardware, and the tests run without the service. Security problems: see 
 |---|---|
 | `crates/` | shared libraries for every platform: `common` (settings), `proto` (signed API, linking), `dsp` (channelizer, bursts, EOT decoder, simulator), `itc` (ITC decoding), `detect` (detector templates), `store` (outbox, history, identity, roles), `scanner` (SR30C), `console` (the terminal console), `engine` (the receiver: agent, dongles, speech, dashboard) |
 | `apps/receiver` | the headless `railspotting-receiver` binary (Linux service, or a terminal on macOS) |
-| `apps/desktop` | the macOS menu bar app (in development; see `apps/desktop/MACOS_APP.md`) |
+| `apps/desktop` | the macOS menu bar app (see `apps/desktop/MACOS_APP.md`); releases, with a `.dmg`, on GitHub Releases |
 | `packaging/linux` | systemd unit, installer, Proxmox LXC guide |
-| `packaging/macos` | signing, notarization and `.dmg` settings for the desktop app |
+| `packaging/macos` | how macOS releases are built and published, and their keys (`tools/release.sh` starts one) |
 | `fixtures/` | recorded reference outputs the tests compare against |
 | `profiles/` | detector voice profiles: how each style of defect detector speaks (see `profiles/README.md`) |
 | `branding/` | logos, colors and voice (a copy from the headend repository; see `branding/README.md`) |

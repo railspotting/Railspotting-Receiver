@@ -107,6 +107,7 @@ pub struct TrayUi {
     pub state: MenuItem<Wry>,
     pub pause: MenuItem<Wry>,
     pub login: CheckMenuItem<Wry>,
+    pub updates: MenuItem<Wry>,
     shown: Option<View>,
 }
 
@@ -126,8 +127,7 @@ impl TrayUi {
         let state = MenuItem::with_id(app, "state", "Starting...", false, None::<&str>)?;
         let pause = MenuItem::with_id(app, PAUSE, "Pause Receiving", true, None::<&str>)?;
         let login = CheckMenuItem::with_id(app, LOGIN, "Launch at Login", true, login_enabled, None::<&str>)?;
-        // the updater comes with signed releases (MACOS_APP.md phase 4)
-        let updates = MenuItem::with_id(app, UPDATES, "Check for Updates...", false, None::<&str>)?;
+        let updates = MenuItem::with_id(app, UPDATES, crate::update::CHECK, true, None::<&str>)?;
         let quit = MenuItem::with_id(app, QUIT, "Quit RailSpotting", true, None::<&str>)?;
         let menu = Menu::with_items(app, &[
             &open, &state, &PredefinedMenuItem::separator(app)?,
@@ -142,7 +142,7 @@ impl TrayUi {
             .menu(&menu)
             .show_menu_on_left_click(true)
             .build(app)?;
-        Ok(TrayUi { tray, state, pause, login, shown: None })
+        Ok(TrayUi { tray, state, pause, login, updates, shown: None })
     }
 
     /// Show `v`, touching the menu bar only when something changed.
