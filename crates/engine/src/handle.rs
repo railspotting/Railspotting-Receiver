@@ -53,6 +53,8 @@ pub struct EngineOptions {
     pub agent: AgentOptions,
     /// The per-run token for the settings endpoints. None turns them off.
     pub token: Option<String>,
+    /// Where to put the local console's socket (`control`); None for no console.
+    pub control: Option<std::path::PathBuf>,
 }
 
 /// A fresh random token for the settings endpoints.
@@ -436,6 +438,8 @@ impl WebHost for Arc<Inner> {
 pub struct Engine {
     inner: Arc<Inner>,
     web: Mutex<Option<WebUI>>,
+    #[cfg(unix)]
+    control: Mutex<Option<crate::control::ControlSocket>>,
     watcher: Mutex<Option<JoinHandle<()>>>,
 }
 
@@ -462,11 +466,23 @@ impl Engine {
         } else {
             None
         };
+        #[cfg(unix)]
+        let control = opts.control.as_deref().and_then(|p| crate::control::ControlSocket::start(Arc::new(inner.clone()), p));
+        #[cfg(not(unix))]
+        if opts.control.is_some() {
+            log::warn!("the console needs a Unix socket, which this system does not have");
+        }
         let watcher = {
             let inner = inner.clone();
             std::thread::Builder::new().name("engine-watch".into()).spawn(move || watch(&inner)).ok()
         };
-        Ok(Engine { inner, web: Mutex::new(web), watcher: Mutex::new(watcher) })
+        Ok(Engine {
+            inner,
+            web: Mutex::new(web),
+            #[cfg(unix)]
+            control: Mutex::new(control),
+            watcher: Mutex::new(watcher),
+        })
     }
 
     /// What `/api/status` returns.
@@ -489,6 +505,14 @@ impl Engine {
     /// The port the status page listens on (0 picks a free one), when it runs.
     pub fn web_port(&self) -> Option<u16> {
         lock(&self.web).as_ref().filter(|w| w.running()).map(|w| w.port)
+    }
+
+    /// The console socket's path, when it listens.
+    pub fn control_path(&self) -> Option<std::path::PathBuf> {
+        #[cfg(unix)]
+        return lock(&self.control).as_ref().map(|c| c.path().to_path_buf());
+        #[cfg(not(unix))]
+        None
     }
 
     pub fn settings(&self) -> Settings {
@@ -515,6 +539,10 @@ impl Engine {
         }
         if let Some(w) = lock(&self.web).as_mut() {
             w.stop();
+        }
+        #[cfg(unix)]
+        if let Some(c) = lock(&self.control).as_mut() {
+            c.stop();
         }
         if let Some(a) = self.inner.agent.write().unwrap_or_else(|p| p.into_inner()).take() {
             a.shutdown(STOP_FLUSH_S, STOP_JOIN_S);

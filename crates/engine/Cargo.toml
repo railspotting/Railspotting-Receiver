@@ -19,6 +19,7 @@ log = "0.4.34"
 num-complex = "0.4.6"
 qrcode = { version = "0.14.1", default-features = false }
 railspotting-common = { version = "2.0.0", path = "../common" }
+railspotting-console = { version = "2.0.0", path = "../console" }
 railspotting-detect = { version = "2.0.0", path = "../detect" }
 railspotting-dsp = { version = "2.0.0", path = "../dsp" }
 railspotting-itc = { version = "2.0.0", path = "../itc" }

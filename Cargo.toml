@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/common", "crates/proto", "crates/dsp", "crates/detect", "crates/store", "crates/scanner", "crates/itc",
-    "crates/engine",
+    "crates/console", "crates/engine",
     "apps/receiver",
     "apps/desktop",
 ]
@@ -10,7 +10,7 @@ members = [
 # `cargo build` on a Linux appliance must never build the desktop app.
 default-members = [
     "crates/common", "crates/proto", "crates/dsp", "crates/detect", "crates/store", "crates/scanner", "crates/itc",
-    "crates/engine",
+    "crates/console", "crates/engine",
     "apps/receiver",
 ]
 
