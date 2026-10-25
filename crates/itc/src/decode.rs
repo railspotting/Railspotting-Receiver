@@ -102,6 +102,7 @@ pub fn decode_burst(b: &Burst, all: bool) -> Vec<Value> {
             j["crc_ok"] = json!(f.crc_ok);
             j["corrected"] = json!(f.corrected);
             j["level_db"] = json!((b.peak_db * 10.0).round() / 10.0);
+            j["floor_db"] = json!((b.floor_db * 10.0).round() / 10.0);
             if !f.trailer().is_empty() {
                 j["trailer"] = json!(f.trailer().iter().map(|x| format!("{x:02x}")).collect::<String>());
             }

@@ -84,6 +84,9 @@ pub struct FakeState {
     /// (status, error, headers) answered to the next requests, before anything else.
     pub fail_next: VecDeque<Injected>,
     pub raw_bodies: Vec<Vec<u8>>,
+    /// ITC records stored by id (contract v1.18), and every record received.
+    pub itc: HashMap<String, Value>,
+    pub itc_log: Vec<Value>,
 }
 
 fn random_code() -> String {
@@ -98,6 +101,7 @@ impl FakeState {
             event_log: vec![], reports: vec![], heartbeats: vec![], links: HashMap::new(),
             link_starts: vec![], link_headers: vec![], commands: vec![], results: HashMap::new(),
             nonces: HashSet::new(), config, down: false, fail_next: VecDeque::new(), raw_bodies: vec![],
+            itc: HashMap::new(), itc_log: vec![],
         }
     }
 
@@ -189,6 +193,37 @@ impl FakeState {
                 }
             }
             return self.resp(200, Some(json!({"accepted": acc, "duplicates": dup})), &[]);
+        }
+        if path == "/api/v1/itc" {
+            if self.config["itc"]["upload"] != true {
+                return self.err(403, "itc_off", "ITC upload is off for this receiver", &[]);
+            }
+            let records = data.as_ref().and_then(|d| d.get("records")).and_then(Value::as_array).cloned().unwrap_or_default();
+            if records.len() > 200 {
+                return self.err(413, "too_large", "more than 200 records", &[]);
+            }
+            let (mut acc, mut dup, mut rej) = (vec![], vec![], vec![]);
+            for r in records {
+                self.itc_log.push(r.clone());
+                let id = r["id"].as_str().unwrap_or("").to_string();
+                let codes_ok = |v: &Value| v.as_array().is_some_and(|a| !a.is_empty() && a.len() <= 64
+                    && a.iter().all(|c| c.as_i64().is_some_and(|c| (0..=31).contains(&c))));
+                let ok = match r["type"].as_str() {
+                    Some("wayside") => codes_ok(&r["codes"]) && (r["previous_codes"].is_null() == (r["first"] == true))
+                        && (r["previous_codes"].is_null() || codes_ok(&r["previous_codes"])),
+                    Some("base") => r["base"].is_string(),
+                    _ => false,
+                };
+                if !ok {
+                    rej.push(json!({"id": id, "reason": "codes must be 1 to 64 integers 0-31"}));
+                } else if self.itc.contains_key(&id) {
+                    dup.push(id);
+                } else {
+                    self.itc.insert(id.clone(), r);
+                    acc.push(id);
+                }
+            }
+            return self.resp(200, Some(json!({"accepted": acc, "duplicates": dup, "rejected": rej})), &[]);
         }
         if path == "/api/v1/heartbeat" {
             self.heartbeats.push(data.unwrap_or(Value::Null));

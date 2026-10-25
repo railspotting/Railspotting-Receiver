@@ -8,6 +8,7 @@ mod cli;
 mod deploy;
 mod e2e;
 mod handle;
+mod itc;
 mod link;
 mod transcribe;
 mod web;

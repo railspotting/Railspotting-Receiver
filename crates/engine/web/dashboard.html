@@ -642,6 +642,8 @@ function sdrPanel(s, where) {
         <dt>Antenna</dt><dd><b>${esc(s.antenna || "")}</b></dd>
         <dt>Center</dt><dd>${num(s.center_mhz, 4)} MHz, window ${win}</dd>
         <dt>Sample rate</dt><dd>${num((s.rate || 0) / 1e6, 2)} MS/s, gain ${num(s.gain)} dB</dd>
+        ${s.itc ? `<dt>ITC</dt><dd>${esc(s.itc.messages)} messages from ${(s.itc.bases || []).length} base stations;
+          ${s.itc.upload ? "state changes go to the headend" : "kept on this receiver"}</dd>` : ""}
         ${s.reference ? `<dt>Reference</dt><dd>${signed(s.reference.snr_db)} dB SNR</dd>` : ""}
         ${s.last_error ? `<dt>Last error</dt><dd>${esc(s.last_error)}</dd>` : ""}
       </dl>
@@ -1302,7 +1304,7 @@ const FEATURES = {
   hot: {role: "hot", what: "Head-of-train telemetry on 452.9375 MHz: how often bursts decode, at what level, and the units heard."},
   detector: {role: "vhf", what: "Defect detector announcements: how each was read (sound and words), and every detector heard.", recs: "detector,candidate"},
   voice: {role: "vhf", what: "Road voice calls, from the VHF dongle and the scanner: activity per channel and the transcripts.", recs: "voice,watched"},
-  itc: {role: "itc", what: "ITC (220 MHz train control) heard by this receiver. Kept on this machine; nothing here goes to the headend. Wayside units repeat their status every few seconds, so only state changes are kept."},
+  itc: {role: "itc", what: "ITC (220 MHz train control) heard by this receiver. Wayside units repeat their status every few seconds, so only state changes are kept. The messages stay on this machine; state changes go to the headend only when the owner turns ITC upload on."},
 };
 // device codes seen so far (crates/itc/findings.md); others are set by each railroad
 const ITC_CODES = {3: "Clear", 8: "Approach", 2: "Medium Clear", 6: "Approach Medium", 15: "Stop (control point)", 13: "Stop (intermediate signal)"};
@@ -1607,13 +1609,15 @@ function renderItc(d) {
     <td class="num">${l.level_db != null ? num(l.level_db) : "-"}</td><td class="num">${esc(l.ch ?? "-")}</td><td>${esc(ago(last))}</td></tr>`);
   const recent = (d.recent || []).map((c) => `<tr><td>${esc(clock(c.t))}</td><td class="mono">${esc(c.wiu)}</td>
     <td>${c.first ? '<span class="tag">first heard</span>' : codeBadges(c.previous_codes)}</td><td>${codeBadges(c.codes, c.first ? null : c.previous_codes)}</td>
-    <td>${esc((c.changed_fields || []).join(", "))}</td><td class="num">${num(c.level_db)}</td><td class="num">${esc(c.ch)}</td></tr>`);
+    <td>${esc(c.first ? "" : (c.codes || []).map((x, i) => (c.previous_codes || [])[i] !== x ? i + 1 : 0).filter(Boolean).join(", "))}</td>
+    <td class="num">${num(c.level_db)}</td><td class="num">${esc(c.channel ?? c.ch)}</td></tr>`);
   const legend = Object.entries(ITC_CODES).map(([k, v]) => `<span class="code">${k}</span> ${esc(v)}`).join(" &nbsp; ");
   const rail = railCards(d);
   const chans = live ? (live.channels || []).map((c) => `<tr><td>${esc(c.ch)}</td><td class="num">${c.n}</td><td>${meter(c.n, st.messages)}</td></tr>`) : [];
   const rx = live ? `<dl class="kv">
       <dt>Decoding</dt><dd>${live.connected ? '<span class="status s-good" data-icon="✓">running</span>' : '<span class="status s-serious" data-icon="!">dongle not streaming</span>'}</dd>
       <dt>Channels</dt><dd>${esc((st.channels || []).join(", "))}</dd>
+      <dt>Upload</dt><dd>${st.upload ? "on: state changes and base stations go to the headend" : "off: nothing goes to the headend"}</dd>
       <dt>Feed</dt><dd class="mono">${esc(st.feed || "off")}</dd>
       <dt>Message log</dt><dd class="mono">${esc(st.log_dir || "")}</dd>
       ${st.error ? `<dt>Error</dt><dd>${esc(st.error)}</dd>` : ""}</dl>` : '<div class="muted">No ITC dongle is running. State changes saved earlier still show below.</div>';
