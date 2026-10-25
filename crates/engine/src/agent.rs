@@ -1603,14 +1603,37 @@ impl Agent {
 
     /// The headend's job for each plugged-in dongle it names (`sdr_roles` in /config), by serial.
     /// Jobs this receiver has no role for are left out.
-    fn chosen_roles(&self, present: &[String]) -> std::collections::BTreeMap<String, String> {
+    fn website_roles(&self, present: &[String]) -> std::collections::BTreeMap<String, String> {
         let cfg = self.config();
         let Some(map) = cfg.get("sdr_roles").and_then(Value::as_object) else { return Default::default() };
-        let roles: Vec<String> = self.sdrs().iter().map(|h| h.with(|s| s.role.clone())).collect();
+        let roles = self.role_names();
         present.iter().filter_map(|serial| {
             let role = map.get(&self.dongle_id(serial))?.as_str()?;
             (role == "off" || roles.iter().any(|r| r == role)).then(|| (serial.clone(), role.to_string()))
         }).collect()
+    }
+
+    /// The owner's job for each plugged-in dongle named in receiver.json (`sdr.assign`: serial to
+    /// role, or "off"), set in the app or by hand.
+    fn local_roles(&self, present: &[String]) -> std::collections::BTreeMap<String, String> {
+        let Some(map) = self.settings.sdr().get("assign").and_then(Value::as_object) else { return Default::default() };
+        let roles = self.role_names();
+        present.iter().filter_map(|serial| {
+            let role = map.get(serial)?.as_str()?;
+            (role == "off" || roles.iter().any(|r| r == role)).then(|| (serial.clone(), role.to_string()))
+        }).collect()
+    }
+
+    fn role_names(&self) -> Vec<String> {
+        self.sdrs().iter().map(|h| h.with(|s| s.role.clone())).collect()
+    }
+
+    /// The jobs chosen for plugged-in dongles: receiver.json's, with the website's winning for
+    /// the dongles it names (v1.11).
+    fn chosen_roles(&self, present: &[String]) -> std::collections::BTreeMap<String, String> {
+        let mut out = self.local_roles(present);
+        out.extend(self.website_roles(present));
+        out
     }
 
     /// Plugged-in dongles that have no role: spares, and ones the headend turned off.
@@ -1643,12 +1666,17 @@ impl Agent {
             *p = present.clone();
             changed
         };
+        let website = self.website_roles(&present);
         let chosen = self.chosen_roles(&present);
         let mut a = lock(assigner);
         let choice_changed = a.chosen != chosen;
         if choice_changed {
             for (serial, role) in &chosen {
-                log::info!("the headend gives dongle {} (serial {serial}) the {role} job", self.dongle_id(serial));
+                if website.contains_key(serial) {
+                    log::info!("the headend gives dongle {} (serial {serial}) the {role} job", self.dongle_id(serial));
+                } else {
+                    log::info!("receiver.json gives dongle {serial} the {role} job");
+                }
             }
         }
         a.chosen = chosen;
@@ -1673,12 +1701,20 @@ impl Agent {
                 (s.name.clone(), s.antenna.clone())
             });
             if new.is_empty() {
-                log::info!("{name} has no dongle now: the headend gave serial {} another job",
-                           old.unwrap_or_default());
+                let old = old.unwrap_or_default();
+                let role = a.role_of(i).to_string();
+                if !a.order.is_empty() && !a.order.contains(&role) {
+                    log::info!("{name} has no dongle now: its role is switched off (role order)");
+                } else if website.contains_key(&old) {
+                    log::info!("{name} has no dongle now: the headend gave serial {old} another job");
+                } else {
+                    log::info!("{name} has no dongle now: receiver.json gives serial {old} another job");
+                }
                 continue;
             }
+            let by = if website.contains_key(&new) { "on the website" } else { "in receiver.json" };
             let replacing = match old.filter(|o| !o.is_empty()) {
-                Some(o) if choice_changed => format!(" (instead of {o}, as chosen on the website)"),
+                Some(o) if choice_changed => format!(" (instead of {o}, as chosen {by})"),
                 Some(o) => format!(" (replacing {o}, missing for {:.0} s)", a.release_after_s),
                 None => String::new(),
             };
@@ -1818,7 +1854,8 @@ impl Agent {
             let mut st = st;
             let serial = st.get("serial").and_then(Value::as_str).unwrap_or("").to_string();
             let chosen = self.assigner.as_ref().is_some_and(|a| lock(a).chosen.contains_key(&serial));
-            st.insert("assigned".into(), json!(if chosen { "website" } else { assigned }));
+            let by_website = chosen && self.config().get("sdr_roles").and_then(|m| m.get(self.dongle_id(&serial))).is_some();
+            st.insert("assigned".into(), json!(if by_website { "website" } else if chosen { "receiver.json" } else { assigned }));
             st.insert("dongle_id".into(), if serial.is_empty() { Value::Null } else { json!(self.dongle_id(&serial)) });
             sdr_status.push(Value::Object(st));
             // max(): the first of equal ones

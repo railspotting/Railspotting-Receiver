@@ -171,6 +171,13 @@ textarea { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monosp
 .result-box { border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-top: 10px; display: grid; gap: 6px; }
 .devs td { vertical-align: middle; }
 .devs input[type="text"] { max-width: 140px; }
+.order { list-style: none; margin: 0; padding: 0; max-width: 460px; }
+.order li { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.order li span.n { width: 1.5em; color: var(--muted); }
+.order li label { flex: 1; }
+.order li.off label { color: var(--muted); text-decoration: line-through; }
+.order button { padding: 2px 8px; }
+#set-file { width: 100%; min-height: 260px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; box-sizing: border-box; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 button.primary:hover { background: var(--accent); filter: brightness(1.08); }
@@ -368,8 +375,15 @@ button.primary:hover { background: var(--accent); filter: brightness(1.08); }
         <div><input type="text" id="set-watch" placeholder="e.g. 160.950, 161.190">
           <div class="hint">Channels in MHz, separated by commas. For detectors that have no template yet.</div></div>
       </div>
-      <h2 style="margin-top:18px">Dongle roles</h2>
-      <div class="hint" style="margin-bottom:6px">With no rows, each role takes a connected dongle by itself. Serials of connected dongles: <span id="set-seen" class="mono">none</span></div>
+      <h2 style="margin-top:18px">Role order</h2>
+      <div class="hint" style="margin-bottom:6px">Dongles not given a job below take roles in this order as they are plugged in. Untick a role to switch it off. The website can change this.</div>
+      <ol class="order" id="set-order"></ol>
+      <h2 style="margin-top:18px">Dongle jobs</h2>
+      <div class="hint" style="margin-bottom:6px">A job for each connected dongle. Automatic follows the role order; a job chosen on the website wins over this.</div>
+      <div class="scroll"><table class="devs"><thead><tr><th>Serial</th><th>Job</th></tr></thead>
+        <tbody id="set-assign"></tbody></table></div>
+      <h2 style="margin-top:18px">Fixed dongles</h2>
+      <div class="hint" style="margin-bottom:6px">Older setting: with rows here, roles are fixed to these dongles and the two lists above are not used. Serials of connected dongles: <span id="set-seen" class="mono">none</span></div>
       <div class="scroll"><table class="devs"><thead><tr><th>Role</th><th>Serial</th><th>Gain (dB)</th><th></th></tr></thead>
         <tbody id="set-devs"></tbody></table></div>
       <div class="actions"><button type="button" id="set-add">Add a dongle</button></div>
@@ -380,6 +394,16 @@ button.primary:hover { background: var(--accent); filter: brightness(1.08); }
         <span id="set-msg" role="status"></span>
       </div>
     </form>
+    <details id="set-raw" style="margin-top:18px">
+      <summary>Edit receiver.json</summary>
+      <div class="hint" style="margin:6px 0">The whole file, for settings not shown above. It is checked before saving; if the receiver does not start with it, the old file is put back.</div>
+      <textarea id="set-file" spellcheck="false" aria-label="receiver.json"></textarea>
+      <div class="actions">
+        <button type="button" class="primary" id="file-save">Save file</button>
+        <button type="button" id="file-load">Reload</button>
+        <span id="file-msg" role="status"></span>
+      </div>
+    </details>
   </div>
 
   <footer><span id="footer-mode">Read only.</span> Updates every 2 seconds; recordings every minute. Dongle serial numbers are shown so you can tell the dongles apart; they are never sent to the headend.</footer>
@@ -1015,10 +1039,15 @@ async function settingsCall(method, url, body) {
   return data;
 }
 
+const ROLE_NAMES = {eot: "UHF (EOT)", itc: "220 MHz (ITC)", vhf: "VHF (detectors and voice)", hot: "UHF (HOT)"};
+const roleOptions = () => Object.entries(ROLE_NAMES).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+// serials of the dongles plugged in now, from the status
+let seenSerials = [];
+
 function devRow(d) {
   const tr = document.createElement("tr");
   const role = d.role || "vhf";
-  tr.innerHTML = `<td><select class="d-role"><option value="vhf">VHF (voice)</option><option value="eot">UHF (EOT)</option></select></td>
+  tr.innerHTML = `<td><select class="d-role">${roleOptions()}</select></td>
     <td><input type="text" class="d-serial mono" placeholder="any" value="${esc(d.serial || "")}"></td>
     <td><input type="number" class="d-gain" min="0" max="50" step="0.1" placeholder="default" value="${d.gain == null ? "" : esc(d.gain)}"></td>
     <td><button type="button" class="d-del" aria-label="Remove this dongle">Remove</button></td>`;
@@ -1035,6 +1064,50 @@ function fillSettings(s) {
   const body = $("#set-devs");
   body.innerHTML = "";
   for (const d of (s.sdr && s.sdr.devices) || []) body.appendChild(devRow(d));
+  fillOrder((s.sdr && s.sdr.role_order) || []);
+  fillAssign((s.sdr && s.sdr.assign) || {});
+}
+
+function fillOrder(order) {
+  const list = $("#set-order");
+  list.innerHTML = "";
+  const all = [...order, ...Object.keys(ROLE_NAMES).filter((r) => !order.includes(r))];
+  for (const r of all) {
+    const li = document.createElement("li");
+    li.dataset.role = r;
+    li.innerHTML = `<span class="n"></span><label><input type="checkbox" class="o-on"> ${esc(ROLE_NAMES[r] || r)}</label>
+      <button type="button" class="o-up" aria-label="Move up">\u2191</button><button type="button" class="o-down" aria-label="Move down">\u2193</button>`;
+    $(".o-on", li).checked = order.includes(r);
+    $(".o-on", li).addEventListener("change", numberOrder);
+    $(".o-up", li).addEventListener("click", () => { if (li.previousElementSibling) list.insertBefore(li, li.previousElementSibling); numberOrder(); });
+    $(".o-down", li).addEventListener("click", () => { if (li.nextElementSibling) list.insertBefore(li.nextElementSibling, li); numberOrder(); });
+    list.appendChild(li);
+  }
+  numberOrder();
+}
+
+function numberOrder() {
+  let n = 0;
+  for (const li of $("#set-order").children) {
+    const on = $(".o-on", li).checked;
+    li.classList.toggle("off", !on);
+    $(".n", li).textContent = on ? ++n + "." : "";
+  }
+}
+
+function fillAssign(assign) {
+  const body = $("#set-assign");
+  const serials = [...new Set([...seenSerials, ...Object.keys(assign)])];
+  body.innerHTML = serials.length ? "" : `<tr><td colspan="2" class="muted">No dongles connected.</td></tr>`;
+  for (const serial of serials) {
+    const tr = document.createElement("tr");
+    tr.dataset.serial = serial;
+    const here = seenSerials.includes(serial) ? "" : ` <span class="muted">(not connected)</span>`;
+    tr.innerHTML = `<td class="mono">${esc(serial)}${here}</td>
+      <td><select class="a-role"><option value="">Automatic</option>${roleOptions()}<option value="off">Off (not used)</option></select></td>`;
+    $(".a-role", tr).value = assign[serial] || "";
+    body.appendChild(tr);
+  }
 }
 
 function readSettings() {
@@ -1048,8 +1121,14 @@ function readSettings() {
     if (gain) d.gain = Number(gain);
     return d;
   });
+  const role_order = [...$("#set-order").children].filter((li) => $(".o-on", li).checked).map((li) => li.dataset.role);
+  const assign = {};
+  for (const tr of $("#set-assign").children) {
+    const v = tr.dataset.serial && $(".a-role", tr).value;
+    if (v) assign[tr.dataset.serial] = v;
+  }
   return {label: $("#set-label").value.trim() || null, transcribe_other_calls: $("#set-other").checked,
-          watch_clips: watch, sdr: {devices}};
+          watch_clips: watch, sdr: {devices, role_order, assign}};
 }
 
 function settingsMsg(text, ok) {
@@ -1060,8 +1139,15 @@ function settingsMsg(text, ok) {
 
 function renderSettingsStatus(st) {
   if (!TOKEN) return;
-  const seen = (st.sdrs || []).map((s) => s.serial).filter(Boolean);
+  const seen = [...new Set([...(st.sdrs || []).map((s) => s.serial), ...((st.sdr_assign || {}).spare || [])].filter(Boolean))].sort();
   $("#set-seen").textContent = seen.length ? seen.join(", ") : "none";
+  if (seen.join() !== seenSerials.join()) {
+    // keep choices being made: redraw from the form, not from what was saved
+    const now = {};
+    for (const tr of $("#set-assign").children) if (tr.dataset.serial && $(".a-role", tr).value) now[tr.dataset.serial] = $(".a-role", tr).value;
+    seenSerials = seen;
+    fillAssign(now);
+  }
   $("#set-link").hidden = st.registration === "approved" || st.registration === "checking";
 }
 
@@ -1090,6 +1176,33 @@ async function initSettings() {
       settingsMsg("Saved.", true);
     } catch (err) {
       settingsMsg("Not saved: " + err.message, false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  const fileMsg = (text, ok) => { $("#file-msg").textContent = text; $("#file-msg").className = ok ? "msg-ok" : "msg-err"; };
+  const loadFile = async () => {
+    try {
+      $("#set-file").value = (await settingsCall("GET", "/api/config-file")).text;
+      fileMsg("", true);
+    } catch (err) {
+      fileMsg("Could not read receiver.json: " + err.message, false);
+    }
+  };
+  $("#set-raw").addEventListener("toggle", () => { if ($("#set-raw").open && !$("#set-file").value) loadFile(); });
+  $("#file-load").addEventListener("click", loadFile);
+  $("#file-save").addEventListener("click", async () => {
+    const text = $("#set-file").value;
+    try { JSON.parse(text); } catch (err) { fileMsg("Not valid JSON: " + err.message, false); return; }
+    const btn = $("#file-save");
+    btn.disabled = true;
+    fileMsg("Saving and restarting...", true);
+    try {
+      $("#set-file").value = (await settingsCall("POST", "/api/config-file", {text})).text;
+      fillSettings(await settingsCall("GET", "/api/settings"));
+      fileMsg("Saved.", true);
+    } catch (err) {
+      fileMsg("Not saved: " + err.message, false);
     } finally {
       btn.disabled = false;
     }

@@ -13,6 +13,8 @@
 //! GET  /api/settings  the settings the dashboard can change
 //! POST /api/settings  change them (a JSON object; see `handle::validate_settings`)
 //! POST /api/link      start linking again
+//! GET  /api/config-file   receiver.json as text ({"path", "text"})
+//! POST /api/config-file   replace it ({"text": "..."}); checked, then the receiver restarts
 //! POST /api/profiles/test  read a saved recording with a voice profile ({"recording": "/recordings/...",
 //!                          "profile": id}); takes up to a minute and changes nothing
 //!
@@ -49,6 +51,13 @@ pub trait WebHost: Send + Sync {
     }
     fn relink(&self) -> Result<Value, String> {
         Err("linking is not offered here".into())
+    }
+    /// receiver.json as text, for editing whole.
+    fn config_file(&self) -> Result<Value, String> {
+        Err("receiver.json is not offered here".into())
+    }
+    fn replace_config_file(&self, _text: &str) -> Result<Value, String> {
+        Err("receiver.json is not offered here".into())
     }
 }
 
@@ -377,6 +386,14 @@ pub fn settings_route(host: &dyn WebHost, method: &str, path: &str, body: &[u8])
             Err(e) => result_reply(Err(format!("not JSON: {e}"))),
         },
         ("POST", "/api/link") => result_reply(host.relink()),
+        ("GET", "/api/config-file") => result_reply(host.config_file()),
+        ("POST", "/api/config-file") => match serde_json::from_slice::<Value>(body) {
+            Ok(v) => match v.get("text").and_then(Value::as_str) {
+                Some(t) => result_reply(host.replace_config_file(t)),
+                None => result_reply(Err("send {\"text\": \"...\"}".into())),
+            },
+            Err(e) => result_reply(Err(format!("not JSON: {e}"))),
+        },
         ("POST", p) if p.starts_with("/api/profiles/") => {
             let Some(agent) = host.agent() else { return (503, "text/plain; charset=utf-8", b"stopping\n".to_vec()) };
             let Some(tr) = agent.transcriber() else { return result_reply(Err("speech is off on this receiver".into())) };
@@ -407,7 +424,7 @@ fn handle(host: &dyn WebHost, mut req: tiny_http::Request) {
     let url = req.url().to_string();
     let (path, query) = url.split_once('?').unwrap_or((&url, ""));
     let method = req.method().to_string();
-    let is_settings = (matches!(path, "/api/settings" | "/api/link") || path.starts_with("/api/profiles/"))
+    let is_settings = (matches!(path, "/api/settings" | "/api/link" | "/api/config-file") || path.starts_with("/api/profiles/"))
         && host.token().is_some();
     let (status, ctype, body) = if is_settings {
         let given = req.headers().iter().find(|h| h.field.equiv(TOKEN_HEADER)).map(|h| h.value.as_str().to_string());

@@ -27,7 +27,11 @@ pub const MAX_LABEL: usize = 64;
 pub const MAX_WATCH_CLIPS: usize = 20;
 pub const MAX_DEVICES: usize = 4;
 pub const MAX_GAIN_DB: f64 = 50.0;
-pub const ROLES: [&str; 2] = ["vhf", "eot"];
+pub const ROLES: [&str; 4] = ["eot", "itc", "vhf", "hot"];
+/// Dongles named in `sdr.assign`, at most.
+pub const MAX_ASSIGN: usize = 16;
+/// receiver.json as text, at most (the page sends it whole).
+pub const MAX_FILE: usize = 64 * 1024;
 
 /// What subscribers hear.
 #[derive(Debug, Clone, PartialEq)]
@@ -75,8 +79,23 @@ pub fn editable_settings(s: &Settings) -> Value {
         "label": s.get("label"),
         "transcribe_other_calls": s.bool("transcribe_other_calls", false),
         "watch_clips": s.get("watch_clips").as_array().cloned().unwrap_or_default(),
-        "sdr": {"devices": s.devices()},
+        "sdr": {
+            "devices": s.devices(),
+            "role_order": railspotting_store::assign::role_order(s.sdr()),
+            "assign": s.sdr().get("assign").filter(|a| a.is_object()).cloned().unwrap_or_else(|| json!({})),
+        },
     })
+}
+
+/// `merge`, except that `sdr.assign` is replaced whole: a dongle taken out of it must go.
+fn merge_settings(base: &Value, patch: &Value) -> Value {
+    let mut out = merge(base, patch);
+    if let Some(a) = patch.get("sdr").and_then(|s| s.get("assign")) {
+        if let Some(sdr) = out.get_mut("sdr").and_then(Value::as_object_mut) {
+            sdr.insert("assign".into(), a.clone());
+        }
+    }
+    out
 }
 
 /// Check a settings change from the dashboard and return it cleaned up. Only the keys the
@@ -124,15 +143,66 @@ pub fn validate_settings(patch: &Value) -> Result<Value, String> {
             }
             "sdr" => {
                 let sdr = v.as_object().ok_or("sdr must be an object")?;
-                if let Some(other) = sdr.keys().find(|k| *k != "devices") {
+                if let Some(other) = sdr.keys().find(|k| !["devices", "role_order", "assign"].contains(&k.as_str())) {
                     return Err(format!("sdr.{other} can't be changed here"));
                 }
-                let devices = sdr.get("devices").ok_or("sdr needs devices")?;
-                json!({"devices": validate_devices(devices)?})
+                if sdr.is_empty() {
+                    return Err("sdr needs devices, role_order or assign".into());
+                }
+                let mut c = Map::new();
+                if let Some(d) = sdr.get("devices") {
+                    c.insert("devices".into(), validate_devices(d)?);
+                }
+                if let Some(o) = sdr.get("role_order") {
+                    c.insert("role_order".into(), validate_role_order(o)?);
+                }
+                if let Some(a) = sdr.get("assign") {
+                    c.insert("assign".into(), validate_assign(a)?);
+                }
+                Value::Object(c)
             }
             other => return Err(format!("{other} can't be changed here")),
         };
         out.insert(k.clone(), clean);
+    }
+    Ok(Value::Object(out))
+}
+
+/// The order roles take free dongles in: role names, each once; a role left out gets none.
+fn validate_role_order(v: &Value) -> Result<Value, String> {
+    let list = v.as_array().ok_or("sdr.role_order must be a list of roles")?;
+    let mut out: Vec<&str> = vec![];
+    for r in list {
+        match r.as_str() {
+            Some(r) if ROLES.contains(&r) => {
+                if out.contains(&r) {
+                    return Err(format!("sdr.role_order has {r} twice"));
+                }
+                out.push(r);
+            }
+            _ => return Err(format!("sdr.role_order: each role must be one of {}", ROLES.join(", "))),
+        }
+    }
+    Ok(json!(out))
+}
+
+/// A job for each dongle named by serial: a role, or "off". The others stay automatic.
+fn validate_assign(v: &Value) -> Result<Value, String> {
+    let map = v.as_object().ok_or("sdr.assign must map dongle serials to roles")?;
+    if map.len() > MAX_ASSIGN {
+        return Err(format!("sdr.assign names more than {MAX_ASSIGN} dongles"));
+    }
+    let mut out = Map::new();
+    for (serial, role) in map {
+        if serial.is_empty() || serial.len() > 32 || !serial.chars().all(|ch| ch.is_ascii_alphanumeric()) {
+            return Err("sdr.assign: serials must be letters and digits".into());
+        }
+        match role.as_str() {
+            Some(r) if r == "off" || ROLES.contains(&r) => {
+                out.insert(serial.clone(), json!(r));
+            }
+            _ => return Err(format!("sdr.assign: {serial} must be given one of {}, or off", ROLES.join(", "))),
+        }
     }
     Ok(Value::Object(out))
 }
@@ -250,12 +320,51 @@ impl Inner {
             Some(b) => serde_json::from_slice(b).map_err(|e| format!("{}: {e}", path.display()))?,
             None => json!({}),
         };
-        let text = serde_json::to_string_pretty(&merge(&file, &patch)).map_err(|e| e.to_string())? + "\n";
-        write_atomic(&path, text.as_bytes()).map_err(|e| format!("{}: {e}", path.display()))?;
+        let text = serde_json::to_string_pretty(&merge_settings(&file, &patch)).map_err(|e| e.to_string())? + "\n";
         let mut new = old.clone();
-        new.raw = merge(&old.raw, &patch);
-        log::info!("settings changed ({}); restarting the receiver",
-                   patch.as_object().map(|o| o.keys().cloned().collect::<Vec<_>>().join(", ")).unwrap_or_default());
+        new.raw = merge_settings(&old.raw, &patch);
+        let what = patch.as_object().map(|o| o.keys().cloned().collect::<Vec<_>>().join(", ")).unwrap_or_default();
+        self.restart_with(&old, new, &path, old_text, &text, &what).map(|new| editable_settings(&new))
+    }
+
+    /// receiver.json as it is on disk, for editing whole.
+    fn config_file(&self) -> Result<Value, String> {
+        let s = self.settings.read().unwrap_or_else(|p| p.into_inner()).clone();
+        let path = s.path.clone().ok_or("these settings have no receiver.json")?;
+        let text = std::fs::read_to_string(&path).unwrap_or_else(|_| "{}\n".into());
+        Ok(json!({"path": path.display().to_string(), "text": text}))
+    }
+
+    /// Replace receiver.json with `text` (it must be a JSON object that loads as settings) and
+    /// restart the receiver with it. When the receiver won't start, the old file goes back.
+    fn replace_file(self: &Arc<Self>, text: &str) -> Result<Value, String> {
+        if text.len() > MAX_FILE {
+            return Err(format!("receiver.json is limited to {} KB here", MAX_FILE / 1024));
+        }
+        let v: Value = serde_json::from_str(text).map_err(|e| format!("not valid JSON: {e}"))?;
+        if !v.is_object() {
+            return Err("receiver.json must be a JSON object".into());
+        }
+        let _guard = lock(&self.lifecycle);
+        if self.stopping.load(Ordering::SeqCst) {
+            return Err("the receiver is stopping".into());
+        }
+        let old = self.settings.read().unwrap_or_else(|p| p.into_inner()).clone();
+        let path = old.path.clone().ok_or("these settings have no receiver.json to save to")?;
+        let old_text = std::fs::read(&path).ok();
+        let mut new = Settings::from_value(&v, old.base_dir.clone());
+        new.path = old.path.clone();
+        let text = if text.ends_with('\n') { text.to_string() } else { format!("{text}\n") };
+        self.restart_with(&old, new, &path, old_text, &text, "receiver.json edited whole")?;
+        self.config_file()
+    }
+
+    /// Save `text` as receiver.json and restart the receiver with `new`; when it won't start,
+    /// put the old file back and carry on with `old`.
+    fn restart_with(self: &Arc<Self>, old: &Settings, new: Settings, path: &std::path::Path, old_text: Option<Vec<u8>>, text: &str,
+                    what: &str) -> Result<Settings, String> {
+        write_atomic(path, text.as_bytes()).map_err(|e| format!("{}: {e}", path.display()))?;
+        log::info!("settings changed ({what}); restarting the receiver");
         if let Some(a) = self.agent.write().unwrap_or_else(|p| p.into_inner()).take() {
             a.shutdown(STOP_FLUSH_S, STOP_JOIN_S);
         }
@@ -263,19 +372,19 @@ impl Inner {
             Ok(a) => {
                 *self.agent.write().unwrap_or_else(|p| p.into_inner()) = Some(a);
                 *self.settings.write().unwrap_or_else(|p| p.into_inner()) = new.clone();
-                Ok(editable_settings(&new))
+                Ok(new)
             }
             Err(e) => {
                 // put the old settings back and carry on with them
                 log::error!("receiver did not start with the new settings: {e}");
                 let restored = match old_text {
-                    Some(b) => write_atomic(&path, &b),
-                    None => std::fs::remove_file(&path),
+                    Some(b) => write_atomic(path, &b),
+                    None => std::fs::remove_file(path),
                 };
                 if let Err(re) = restored {
                     log::error!("{}: could not put the old settings back: {re}", path.display());
                 }
-                match self.start_agent(&old) {
+                match self.start_agent(old) {
                     Ok(a) => *self.agent.write().unwrap_or_else(|p| p.into_inner()) = Some(a),
                     Err(e2) => {
                         log::error!("receiver did not start again with the old settings: {e2}");
@@ -314,6 +423,12 @@ impl WebHost for Arc<Inner> {
     }
     fn relink(&self) -> Result<Value, String> {
         Inner::relink(self)
+    }
+    fn config_file(&self) -> Result<Value, String> {
+        Inner::config_file(self)
+    }
+    fn replace_config_file(&self, text: &str) -> Result<Value, String> {
+        self.replace_file(text)
     }
 }
 
@@ -473,6 +588,36 @@ mod tests {
         ] {
             assert!(validate_settings(&bad).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn role_order_and_dongle_jobs() {
+        let ok = validate_settings(&json!({"sdr": {"role_order": ["vhf", "eot"], "assign": {"30001111": "itc", "30002222": "off"}}}))
+            .unwrap();
+        assert_eq!(ok["sdr"], json!({"role_order": ["vhf", "eot"], "assign": {"30001111": "itc", "30002222": "off"}}));
+        assert_eq!(validate_settings(&json!({"sdr": {"role_order": []}})).unwrap()["sdr"]["role_order"], json!([]));
+        for bad in [
+            json!({"sdr": {}}),
+            json!({"sdr": {"role_order": ["eot", "eot"]}}),
+            json!({"sdr": {"role_order": ["eot", "hf"]}}),
+            json!({"sdr": {"role_order": "eot"}}),
+            json!({"sdr": {"assign": {"30001111": "hf"}}}),
+            json!({"sdr": {"assign": {"30/1": "eot"}}}),
+            json!({"sdr": {"assign": ["30001111"]}}),
+            json!({"sdr": {"assign": (0..17).map(|i| (format!("3000{i:04}"), json!("eot"))).collect::<Map<_, _>>()}}),
+        ] {
+            assert!(validate_settings(&bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn dongle_jobs_are_replaced_whole() {
+        let file = json!({"sdr": {"devices": [], "assign": {"30001111": "eot", "30002222": "vhf"}}, "label": "x"});
+        let got = merge_settings(&file, &json!({"sdr": {"assign": {"30002222": "itc"}}}));
+        assert_eq!(got["sdr"], json!({"devices": [], "assign": {"30002222": "itc"}}));
+        assert_eq!(got["label"], "x");
+        // a change that leaves the jobs out keeps them
+        assert_eq!(merge_settings(&file, &json!({"label": "y"}))["sdr"]["assign"], file["sdr"]["assign"]);
     }
 
     #[test]

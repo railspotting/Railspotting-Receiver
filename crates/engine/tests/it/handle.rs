@@ -123,6 +123,50 @@ fn request_or_refused(port: u16) -> Option<u16> {
 }
 
 #[test]
+fn receiver_json_is_edited_whole_and_put_back_when_it_fails() {
+    let (c, t) = (clock(), Tmp::new("handle4"));
+    let h = headend(&c);
+    let engine = start(t.path(), &h, Some(TOKEN));
+    let port = engine.web_port().unwrap();
+    let path = t.path().join("receiver.json");
+    assert_eq!(request(port, "GET", "/api/config-file", None, "").0, 403);
+
+    let (st, body) = request(port, "GET", "/api/config-file", Some(TOKEN), "");
+    assert_eq!(st, 200);
+    let text = json_of(&body)["text"].as_str().unwrap().to_string();
+    assert_eq!(serde_json::from_str::<Value>(&text).unwrap()["label"], "before");
+
+    // not JSON, or not an object: refused and the file is untouched
+    for bad in ["{\"label\": ", "[1, 2]"] {
+        let (st, _) = request(port, "POST", "/api/config-file", Some(TOKEN), &json!({"text": bad}).to_string());
+        assert_eq!(st, 400, "{bad}");
+    }
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
+
+    // a good file is saved as written and the receiver restarts on it
+    let mut v: Value = serde_json::from_str(&text).unwrap();
+    v["label"] = json!("Whole");
+    v["sdr"]["role_order"] = json!(["vhf", "eot"]);
+    let new = serde_json::to_string_pretty(&v).unwrap() + "\n";
+    let (st, body) = request(port, "POST", "/api/config-file", Some(TOKEN), &json!({"text": new}).to_string());
+    assert_eq!(st, 200, "{}", String::from_utf8_lossy(&body));
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), new);
+    assert_eq!(engine.settings().str("label"), Some("Whole"));
+    let s = json_of(&request(port, "GET", "/api/settings", Some(TOKEN), "").1);
+    assert_eq!(s["sdr"]["role_order"], json!(["vhf", "eot"]));
+
+    // a file the receiver won't start with: the old one goes back
+    let mut broken = v.clone();
+    broken["state_dir"] = json!(t.path().join("receiver.json").join("state"));
+    let (st, _) = request(port, "POST", "/api/config-file", Some(TOKEN), &json!({"text": broken.to_string()}).to_string());
+    assert_eq!(st, 400);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), new);
+    assert!(engine.agent().is_some());
+    assert_eq!(engine.settings().str("label"), Some("Whole"));
+    engine.stop();
+}
+
+#[test]
 fn without_a_token_the_page_stays_read_only() {
     let (c, t) = (clock(), Tmp::new("handle2"));
     let h = headend(&c);
@@ -131,6 +175,7 @@ fn without_a_token_the_page_stays_read_only() {
     assert_eq!(request(port, "POST", "/api/settings", Some(TOKEN), r#"{"label": "x"}"#).0, 501);
     assert_eq!(request(port, "POST", "/api/link", None, "").0, 501);
     assert_eq!(request(port, "GET", "/api/settings", Some(TOKEN), "").0, 404);
+    assert_eq!(request(port, "POST", "/api/config-file", Some(TOKEN), r#"{"text": "{}"}"#).0, 501);
     assert_eq!(read_json(&t.path().join("receiver.json"))["label"], "before");
     engine.stop();
 }

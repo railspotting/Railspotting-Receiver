@@ -81,6 +81,7 @@ Anything left out takes the default shown in `receiver.json.example`.
 | `auto_eot_focus` | when the scanner turns to EOT telemetry by itself |
 | `sdr.devices` | dongles by serial with role (`eot`, `itc`, `vhf`, `hot`), gain and sample rate; empty means each role takes a connected dongle by itself, in `sdr.role_order` |
 | `sdr.role_order` | which roles take free dongles, first to last; a role left out gets none. Default `["eot", "itc", "vhf", "hot"]`: EOT, then ITC (220 MHz PTC), then VHF (voice: defect detectors and road calls, which share the channels), then HOT. The headend can set it (`sdr_role_order`); the receiver then writes it here |
+| `sdr.assign` | a job for each dongle by serial: a role, or `"off"` to leave it unused (`{"30001111": "itc"}`). Dongles not named take roles in `sdr.role_order`; a job chosen on the website wins. The Mac app's Settings card sets it |
 | `sdr.margin_db`, `sdr.min_windows` | how far above the noise, and for how long, a signal must be to count |
 | `sdr.record_bursts`, `sdr.record_keep`, `sdr.voice_clip_keep` | recordings kept in `state/` |
 | `watch_clips` | channels (MHz) whose every recording is kept in `state/watch_clips`, for detectors that have no template yet |

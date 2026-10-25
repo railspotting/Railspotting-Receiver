@@ -269,6 +269,14 @@ Update this section as phases complete: what was done, what was measured, what i
   - Checked: launch, linking (fake headend), the dashboard and Settings card in the window, the
     menu bar icon, a second launch opening the first, and Quit through macOS's terminate path
     stopping the receiver cleanly.
+  - Done: dongle setup in the Settings card. A role order list (move roles up and down, untick
+    one to switch it off; `sdr.role_order`), a job for each connected dongle (Automatic, a role,
+    or Off; `sdr.assign`, where a job named on the website wins), all four roles (EOT, ITC, VHF,
+    HOT) in the fixed dongle rows, and an editor for the whole receiver.json
+    (`GET`/`POST /api/config-file`, same token gate). A file must be a JSON object that loads as
+    settings; when the receiver won't start with it, the old file is put back.
+  - Tested: validation of the new keys, `sdr.assign` replaced whole on save, receiver.json jobs
+    with the website winning, and the whole-file round trip with the restore.
   - Left: first-run steps inside the dashboard (librtlsdr Check Again, model progress, dongle
     identification beyond the existing chips), notifications, sleep and wake, and window
     close and Pause/Resume tested by hand. Check for Updates waits for phase 4.
