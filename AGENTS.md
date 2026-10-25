@@ -104,7 +104,7 @@ cargo clippy -p <crate> --tests
   the queued records are dropped. Their JSON fields (`crates/itc/messages.md`) are read by RailSpotting-ITC-Monitor: change them
   only on purpose, and update both.
 - **Dongle roles** fill in `sdr.role_order` (default EOT, ITC, VHF, HOT; an owner decision of
-  October 2026). The headend can set the order (`sdr_role_order`, proposed contract v1.13) and
+  October 2026). The headend can set the order (`sdr_role_order`, proposed contract v1.17, `docs/contract-v1.17.md`) and
   the receiver writes it into receiver.json.
 - **The receiver's status page is never editable.** Settings change only from the local console
   (receiver.json, the CLI) or the Mac app's own window, which gets a per-run token injected by

@@ -1,7 +1,7 @@
 # Contract v1.18 (proposed): ITC wayside state changes
 
 Status: **proposed by the headend; built on the receiver, not yet on the headend.** Builds on
-v1.17. A receiver uploads nothing under this contract until its `/config` says `itc.upload: true`
+v1.17 (`contract-v1.17.md`). A receiver uploads nothing under this contract until its `/config` says `itc.upload: true`
 (section 4), so a receiver that knows v1.18 is safe against any headend.
 
 | Endpoint | Change | Who |

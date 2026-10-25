@@ -327,11 +327,18 @@ fn configured_serials_still_win() {
 
 #[test]
 fn simulation_uses_automatic_roles() {
+    // (and an ITC dongle tells the website it can decode ITC; contract v1.17)
     let (c, t) = (clock(), Tmp::new("as4"));
     let h = headend(&c);
     let agent = make_agent_with(t.path(), Some(&h), Some(&c), auto(), true, AgentOptions { simulate: true, ..Default::default() });
     agent.sdr_scan_tick(true);
     assert_eq!(agent.sdrs().iter().map(|s| s.with(|x| x.serial.clone())).collect::<Vec<_>>(), ["SIM00001", "SIM00002", "SIM00003", ""]);
+    assert!(agent.capabilities()["features"].get("itc_decode").is_none(), "not streaming yet");
+    agent.sdrs()[1].with(|x| x.connected = true);
+    let caps = agent.capabilities();
+    assert_eq!(caps["features"]["itc_decode"], true);
+    let itc = caps["receivers"].as_array().unwrap().iter().find(|r| r["role"] == "itc").unwrap().clone();
+    assert!(itc.get("channels").is_none() && itc["audio"] == false && itc["dongle_id"].is_string(), "{itc}");
 }
 
 // USB presence ------------------------------------------------------------------------------------
@@ -477,7 +484,7 @@ fn the_headend_chooses_each_dongles_job() {
 
 #[test]
 fn the_headend_orders_the_roles_and_receiver_json_keeps_it() {
-    // proposed contract v1.13: /config `sdr_role_order`; roles left out take no dongle. The
+    // contract v1.17: /config `sdr_role_order`; roles left out take no dongle. The
     // receiver writes it into receiver.json so it holds without the headend.
     let (c, t) = (clock(), Tmp::new("role-order"));
     let h = headend(&c);
@@ -494,6 +501,13 @@ fn the_headend_orders_the_roles_and_receiver_json_keeps_it() {
     agent.usb_check_tick(true);
     let roles = |a: &railspotting_engine::agent::Agent| a.sdrs().iter().map(|s| s.with(|x| (x.role.clone(), x.serial.clone()))).collect::<Vec<_>>();
     assert_eq!(roles(&agent)[1], ("itc".into(), "30002222".into()));
+    // contract v1.17: the heartbeat says which order is in force and where it came from
+    assert_eq!(agent.capabilities()["sdr_role_order"], json!({"order": ["eot", "itc", "vhf", "hot"], "from": "default"}));
+
+    // a config without sdr_role_order leaves the order alone
+    agent.apply_config(agent.config(), None);
+    assert_eq!(roles(&agent)[1], ("itc".into(), "30002222".into()));
+    agent.hb_wake.clear();
 
     // the owner puts VHF first and switches ITC off
     let mut cfg = agent.config();
@@ -504,13 +518,28 @@ fn the_headend_orders_the_roles_and_receiver_json_keeps_it() {
     assert_eq!(got[2], ("vhf".into(), "30002222".into()), "its dongle went to VHF");
     assert_eq!(got[0], ("eot".into(), "30001111".into()), "EOT keeps its own");
     assert!(log.text().contains("dongle role order from the website: vhf, eot, hot"));
+    assert!(agent.hb_wake.is_set(), "the website hears the new order at once");
+    assert_eq!(agent.capabilities()["sdr_role_order"], json!({"order": ["vhf", "eot", "hot"], "from": "website"}));
     let saved = read_json(&file);
     assert_eq!(saved["sdr"]["role_order"], json!(["vhf", "eot", "hot"]));
     assert_eq!(saved["state_dir"], "state", "the rest of receiver.json is kept");
 
-    // a restart reads the same order without the headend
+    // a restart reads the same order without the headend, and still says it is the website's
     let again = railspotting_common::Settings::load(&file).unwrap();
     assert_eq!(railspotting_store::assign::role_order(again.sdr()), vec!["vhf", "eot", "hot"]);
+    let usb = Arc::new(Mutex::new(vec![]));
+    let restarted = railspotting_engine::agent::Agent::new(again, AgentOptions { usb_lister: Some(usb_lister(usb.clone())), clock: Some(c.clock()), ..Default::default() })
+        .expect("agent");
+    assert_eq!(restarted.capabilities()["sdr_role_order"]["from"], "website");
+    drop(restarted);
+
+    // set by hand in receiver.json: local
+    let mut raw = read_json(&file);
+    raw["sdr"]["role_order"] = json!(["eot", "vhf"]);
+    std::fs::write(&file, raw.to_string()).unwrap();
+    let local = railspotting_engine::agent::Agent::new(railspotting_common::Settings::load(&file).unwrap(),
+        AgentOptions { usb_lister: Some(usb_lister(usb)), clock: Some(c.clock()), ..Default::default() }).expect("agent");
+    assert_eq!(local.capabilities()["sdr_role_order"], json!({"order": ["eot", "vhf"], "from": "local"}));
 }
 
 #[test]

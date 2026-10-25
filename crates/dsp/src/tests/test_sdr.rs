@@ -317,6 +317,22 @@ fn capability_and_status_shape() {
 }
 
 #[test]
+fn an_itc_dongle_leaves_the_channel_plan_out() {
+    // contract v1.17: ITC channels are numbered apart from the plan, and there is no audio
+    let tmp = TmpDir::new("cap-itc");
+    let dev = json!({"serial": "30003333", "role": "itc", "sample_rate": 1_024_000.0, "gain": 40.2, "name": "220 MHz SDR (ITC)"});
+    let (mut src, _) = source(tmp.path(), &dev);
+    src.connected = true;
+    let c = src.capability();
+    assert_eq!(c["role"], "itc");
+    assert_eq!(c["audio"], false);
+    assert!(c.get("window_mhz").is_some());
+    for k in ["channels", "uncovered_channels", "reference_in_window"] {
+        assert!(!c.contains_key(k), "{k}");
+    }
+}
+
+#[test]
 fn repeated_frequency_keeps_first_position() {
     let tmp = TmpDir::new("dup-freq");
     let (mut src, _events) = source(tmp.path(), &vhf());

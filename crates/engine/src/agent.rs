@@ -34,6 +34,8 @@ use std::thread::JoinHandle;
 
 pub const SCHED_S: f64 = 5.0;
 pub const REG_POLL_S: f64 = 30.0;
+/// The last `sdr_role_order` from /config, under state/ (contract v1.17).
+const WEBSITE_ORDER_FILE: &str = "sdr_role_order.json";
 pub const FIRST_RADIO_CHECK_S: f64 = 20.0;
 pub const RADIO_CHECK_RETRY_S: f64 = 30.0;
 pub const REF_WEAK_DB: f64 = 10.0;
@@ -704,7 +706,7 @@ impl Agent {
             log::warn!("could not save the channel plan: {e}");
         }
         self.check_detectors(&cfg);
-        // the order roles take free dongles in, from the website (proposed v1.13)
+        // the order roles take free dongles in, from the website (contract v1.17)
         self.apply_role_order(&cfg);
         self.apply_itc(&cfg);
         // dongle jobs chosen on the website (v1.11)
@@ -721,9 +723,10 @@ impl Agent {
         }
     }
 
-    /// The website's order for roles taking free dongles (`sdr_role_order` in /config, proposed
-    /// contract v1.13): a role left out takes none. It is also written into receiver.json, so it
-    /// holds when the headend is out of reach.
+    /// The website's order for roles taking free dongles (`sdr_role_order` in /config, contract
+    /// v1.17): a role left out takes none. Sent only when the owner set one; without it the order
+    /// stays as it is. It is also written into receiver.json, so it holds when the headend is out
+    /// of reach, and kept in state/ so the heartbeat can say it came from the website.
     fn apply_role_order(&self, cfg: &Value) {
         let Some(assigner) = &self.assigner else { return };
         let Some(order) = cfg.get("sdr_role_order").and_then(parse_role_order) else { return };
@@ -735,9 +738,33 @@ impl Agent {
             log::info!("dongle role order from the website: {}", if order.is_empty() { "none".to_string() } else { order.join(", ") });
             a.order = order.clone();
         }
+        let path = self.state_dir.join(WEBSITE_ORDER_FILE);
+        if let Err(e) = railspotting_common::write_atomic(&path, json!(order).to_string().as_bytes()) {
+            log::warn!("{}: {e}", path.display());
+        }
         if let Err(e) = self.save_role_order(&order) {
             log::warn!("could not write the role order into receiver.json: {e}");
         }
+        // the website shows the order in force; tell it now
+        self.hb_wake.set();
+    }
+
+    /// The role order in force and where it came from (contract v1.17): `website` when it is the
+    /// last one /config sent, `local` when receiver.json sets another, `default` otherwise. None
+    /// with dongles fixed by serial, which ignore the order.
+    pub fn role_order_report(&self) -> Option<Value> {
+        let order = lock(self.assigner.as_ref()?).order.clone();
+        let website = std::fs::read_to_string(self.state_dir.join(WEBSITE_ORDER_FILE)).ok()
+            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+            .and_then(|v| parse_role_order(&v));
+        let from = if website.as_ref() == Some(&order) {
+            "website"
+        } else if self.settings.sdr().get("role_order").and_then(parse_role_order).as_ref() == Some(&order) {
+            "local"
+        } else {
+            "default"
+        };
+        Some(json!({"order": order, "from": from}))
     }
 
     /// `sdr.role_order` in receiver.json, the rest of the file as it was.
@@ -1348,6 +1375,7 @@ impl Agent {
         let vhf_tx = sdrs.iter().any(|s| s.with(|x| x.connected && x.role == "vhf"
             && x.transcriber.as_ref().is_some_and(|t| t.other_calls())));
         let eot_decode = sdrs.iter().any(|s| s.with(|x| x.connected && x.role == "eot"));
+        let itc_decode = sdrs.iter().any(|s| s.with(|x| x.connected && x.role == "itc"));
         let detector_reports = self.transcriber().and_then(|t| t.templates()).is_some_and(|l| !l.is_empty());
         let mut receivers = vec![scanner];
         // with automatic roles, only the dongles plugged in now: one thrown away stops showing on
@@ -1366,7 +1394,7 @@ impl Agent {
         for serial in self.unused_dongles() {
             receivers.push(json!({"type": "sdr", "connected": true, "role": null, "dongle_id": self.dongle_id(&serial)}));
         }
-        json!({
+        let mut caps = json!({
             "receivers": receivers,
             "features": {
                 "simultaneous_voice": self.sdr_covers("voice"),
@@ -1377,7 +1405,15 @@ impl Agent {
                 // API contract v1.5: sends `detector` and never sets parsed.defects from speech
                 "detector_reports": detector_reports,
             },
-        })
+        });
+        // contract v1.17
+        if itc_decode {
+            caps["features"]["itc_decode"] = json!(true);
+        }
+        if let Some(o) = self.role_order_report() {
+            caps["sdr_role_order"] = o;
+        }
+        caps
     }
 
     pub fn clock_synced(&self) -> bool {
