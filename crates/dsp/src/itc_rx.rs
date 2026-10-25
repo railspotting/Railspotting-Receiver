@@ -14,6 +14,9 @@
 //! For the status page's ITC tab the same tracker always runs here too, upload or not, and each
 //! wayside change (or first state) goes to `state/itc/changes/YYYY-MM-DD.jsonl`, so the page can
 //! look back without reading the busy message log.
+//!
+//! For the owner's own screens (the phone app), `units` gives each wayside unit's state as last
+//! heard and the latest changes, from that same tracker. It is not part of `status`.
 
 use num_complex::Complex32;
 use railspotting_itc::decode::{decode_burst, Decoder};
@@ -45,14 +48,32 @@ const GAPS_KEPT: usize = 50;
 const RECENT_CHANGES: usize = 500;
 
 /// A wayside unit as the status page shows it.
-#[derive(Default)]
-struct UnitView {
-    codes: Vec<i64>,
-    last: f64,
-    level: f64,
-    ch: i64,
-    changes: u64,
-    messages: u64,
+/// `units` shows units heard in the last hour.
+pub const UNITS_KEEP_S: f64 = 3600.0;
+pub const UNITS_SHOWN: usize = 200;
+/// `units` shows this many of the latest changes.
+pub const CHANGES_KEPT: usize = 50;
+
+/// A wayside unit as last heard.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct UnitView {
+    /// Its state (empty until the tracker has given one).
+    pub codes: Vec<i64>,
+    /// The state before the last change; None for a first state.
+    pub previous: Option<Vec<i64>>,
+    /// When its state was first heard or last changed.
+    pub changed: f64,
+    /// When any message from it was last heard.
+    pub heard: f64,
+    pub channel: i64,
+    pub level_db: f64,
+    pub changes: u64,
+    pub messages: u64,
+}
+
+/// Each code's signal aspect name where public material gives one, else null.
+fn aspects(codes: &[i64]) -> Vec<Value> {
+    codes.iter().map(|&c| json!(u8::try_from(c).ok().and_then(railspotting_itc::msg::signal_aspect))).collect()
 }
 
 /// Where ITC records go while upload is on: the agent's ITC outbox.
@@ -356,7 +377,7 @@ impl ItcRx {
         if let Some(w) = m["wiu"].as_str() {
             let u = self.units.entry(w.to_ascii_lowercase()).or_default();
             u.messages += 1;
-            u.last = u.last.max(t);
+            u.heard = u.heard.max(t);
         }
         let Some(r) = self.local.add(m) else { return };
         if r["type"] != "wayside" {
@@ -365,8 +386,10 @@ impl ItcRx {
         let wiu = r["wiu"].as_str().unwrap_or("").to_string();
         let u = self.units.entry(wiu).or_default();
         u.codes = r["codes"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
-        u.level = r["level_db"].as_f64().unwrap_or(0.0);
-        u.ch = r["channel"].as_i64().unwrap_or(0);
+        u.previous = r["previous_codes"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect());
+        u.changed = r["t"].as_f64().unwrap_or(t);
+        u.level_db = r["level_db"].as_f64().unwrap_or(0.0);
+        u.channel = r["channel"].as_i64().unwrap_or(0);
         if r["first"] == false {
             u.changes += 1;
         }
@@ -403,9 +426,31 @@ impl ItcRx {
     }
 
     /// The units, counts by hour and channel, gaps and recent changes, for the status page.
+    /// Each wayside unit heard in the last hour with its state, and the latest changes (first
+    /// states left out), newest first. For the owner's own screens; not part of `status`.
+    pub fn units(&self, now: f64) -> Value {
+        let mut units: Vec<(&String, &UnitView)> = self.units.iter()
+            .filter(|(_, u)| u.changed > 0.0 && now - u.heard <= UNITS_KEEP_S).collect();
+        units.sort_by(|a, b| b.1.changed.total_cmp(&a.1.changed).then(a.0.cmp(b.0)));
+        let ago = |t: f64| (now - t).max(0.0).round();
+        let changes: Vec<Value> = self.recent_changes.iter().rev().filter(|r| r["first"] != true).take(CHANGES_KEPT).map(|r| {
+            let codes: Vec<i64> = r["codes"].as_array().into_iter().flatten().filter_map(Value::as_i64).collect();
+            let t = r["t"].as_f64().unwrap_or(now);
+            json!({"wiu": r["wiu"], "t": t, "codes": codes, "aspects": aspects(&codes), "previous_codes": r["previous_codes"],
+                   "channel": r["channel"], "ago_s": ago(t)})
+        }).collect();
+        json!({
+            "units": units.iter().take(UNITS_SHOWN).map(|(w, u)| json!({
+                "wiu": w, "codes": u.codes, "aspects": aspects(&u.codes), "previous_codes": u.previous,
+                "changed_s": ago(u.changed), "heard_s": ago(u.heard), "channel": u.channel, "level_db": u.level_db,
+            })).collect::<Vec<_>>(),
+            "changes": changes,
+        })
+    }
+
     pub fn detail(&self) -> Value {
         let units: Vec<Value> = self.units.iter().map(|(w, u)| json!({
-            "wiu": w, "codes": u.codes, "last": u.last, "level_db": u.level, "ch": u.ch, "changes": u.changes, "messages": u.messages,
+            "wiu": w, "codes": u.codes, "last": u.heard, "level_db": u.level_db, "ch": u.channel, "changes": u.changes, "messages": u.messages,
         })).collect();
         let count = |m: &BTreeMap<i64, BTreeMap<String, u64>>, key: &str| -> Vec<Value> {
             m.iter().map(|(k, by)| json!({key: k, "n": by.values().sum::<u64>(), "by_type": by})).collect()
@@ -562,6 +607,36 @@ mod tests {
 
     fn wiu(t: f64, codes: &[i64]) -> Value {
         json!({"type": "WIU", "wiu": "1234560ff0", "t": t, "ch": 114, "codes": codes, "crc_ok": true, "level_db": 20.0, "floor_db": -80.0})
+    }
+
+    #[test]
+    fn units_show_each_signal_as_last_heard_without_upload() {
+        let dir = std::env::temp_dir().join(format!("rs-itc-units-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut r = ItcRx::new(&json!({"serve": ""}), &dir);
+        let reply = |t: f64, codes: &[i64]| {
+            let mut m = wiu(t, codes);
+            m["type"] = json!("WIU_REPLY");
+            m
+        };
+        r.handle(&[wiu(1000.0, &[3, 15]), wiu(1004.0, &[3, 15]), wiu(1008.0, &[8, 15]), reply(1009.0, &[3, 15]), wiu(1012.0, &[8, 15])],
+                 1000.0, 220.3, 1.024e6);
+        let v = r.units(1020.0);
+        let u = &v["units"][0];
+        assert_eq!(u["wiu"], "1234560ff0");
+        assert_eq!(u["codes"], json!([8, 15]), "a late reply does not flip it back");
+        assert_eq!(u["aspects"], json!(["Approach", null]));
+        assert_eq!(u["previous_codes"], json!([3, 15]));
+        assert_eq!((u["changed_s"].as_f64(), u["heard_s"].as_f64()), (Some(12.0), Some(8.0)));
+        assert_eq!(u["channel"], 114);
+        assert_eq!(v["changes"].as_array().unwrap().len(), 1, "the starting state is not a change");
+        assert_eq!(v["changes"][0]["codes"], json!([8, 15]));
+        assert_eq!(v["changes"][0]["ago_s"], 12.0);
+        // not in the status, which the open status page shows
+        assert!(r.status().get("units").is_none());
+        // a unit not heard for an hour is forgotten
+        assert!(r.units(1012.0 + UNITS_KEEP_S + 1.0)["units"].as_array().unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
