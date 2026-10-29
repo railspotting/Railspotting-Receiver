@@ -80,6 +80,13 @@ tbody tr:hover { background: var(--surface-2); }
 .signal { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin-right: .4em; vertical-align: baseline; }
 .foot { margin-top: 3em; padding-top: 1em; border-top: 1px solid var(--line); color: var(--ink-3); font-size: .9rem; }
 
+/* screenshots */
+.shot { margin: 0 0 1.4em; }
+.shot img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.06); }
+.shot figcaption { margin-top: 6px; color: var(--ink-3); font-size: .9rem; }
+.shot-phone img { max-width: 300px; }
+
 /* phones: pages fold away above the content */
 @media (max-width: 860px) {
   .wrap { grid-template-columns: 1fr; gap: 14px; padding-top: 14px; }

@@ -20,6 +20,7 @@ nav:
   - title: "Start"
     pages:
       - {title: "Overview", url: "/"}
+      - {title: "The status page", url: "/status-page/"}
   - title: "How it works"
     pages:
       - {title: "Railroad radio basics", url: "/radio-basics/"}

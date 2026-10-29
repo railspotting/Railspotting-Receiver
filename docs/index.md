@@ -23,7 +23,13 @@ It recognises:
 
 </div>
 
+<figure class="shot">
+  <a href="{{ '/status-page/' | relative_url }}"><img src="{{ '/assets/screenshots/console-detectors.png' | relative_url }}" alt="The receiver's status page, Defect detectors tab: announcements per hour and recent announcements, with all clear, defect and unconfirmed results" loading="lazy"></a>
+  <figcaption>The receiver's status page, with made-up data. <a href="{{ '/status-page/' | relative_url }}">A tour of the status page</a>.</figcaption>
+</figure>
+
 <div class="cards">
+<a class="card" href="{{ '/status-page/' | relative_url }}"><b>The status page</b><span>What the receiver shows on your network: dongles, signal, detector results, EOT units and ITC signals.</span></a>
 <a class="card" href="{{ '/radio-basics/' | relative_url }}"><b>Railroad radio basics</b><span>How trains use radio: road and dispatcher channels, EOT, HOT and defect detectors.</span></a>
 <a class="card" href="{{ '/identifying-signals/' | relative_url }}"><b>How the receiver identifies signals</b><span>Watching many channels at once, decoding EOT, recognising detectors.</span></a>
 <a class="card" href="{{ '/reporting/' | relative_url }}"><b>How reports reach RailSpotting</b><span>Linking, the signed API, the offline outbox, and what is sent.</span></a>
