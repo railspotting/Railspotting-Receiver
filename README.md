@@ -57,6 +57,38 @@ This installs the binary in `/opt/railspotting-receiver/bin`, creates `receiver.
 identity and history. On first start the receiver shows a link code (in the log, on the status
 page at port 8080 and in the console) to add it to an account.
 
+## Running the service (Linux)
+
+The service runs as the `railspotting` user, starts at boot, and restarts itself 2 s after it
+exits (`Restart=always`), so stop it with `systemctl`, not `kill`:
+
+    sudo systemctl start railspotting-receiver
+    sudo systemctl stop railspotting-receiver       # lets go of every dongle and the scanner
+    sudo systemctl restart railspotting-receiver    # after editing receiver.json by hand
+    sudo systemctl enable railspotting-receiver     # start at boot (disable: don't)
+    systemctl status railspotting-receiver
+    journalctl -u railspotting-receiver -f          # follow the log; -n 100 for the last lines
+    cd /opt/railspotting-receiver && bin/railspotting-receiver status
+
+`status` is the receiver's own view (link, dongles, uploads, events) and shows `NOT RUNNING` when
+it has stopped. Settings saved in the console restart the receiver by themselves. Stopping is
+clean: the upload queue stays on disk and goes out after the next start.
+
+Commands that open a dongle directly (`itc survey`, `itc decode`, `itc record`, `itc bursts`,
+`rtl_test`, `rtl_eeprom`) need it free: stop the service, or set that one dongle's job to off in
+the console and pass its serial with `--serial`.
+
+To run it by hand (`railspotting-receiver run`), stop the service first and run it as the service
+user, from `/opt/railspotting-receiver`:
+
+    sudo -u railspotting bin/railspotting-receiver --config receiver.json run
+
+A copy started by hand doesn't show in `systemctl status`; `pgrep -a railspotting-receiver` finds
+it, and Ctrl-C or `kill -INT <pid>` stops it cleanly. Run as root, it leaves files in `state/`
+that belong to root and the service can't write;
+`sudo chown -R railspotting:railspotting /opt/railspotting-receiver` puts that right. More, and
+the Mac app, on the docs site's "Running the service" page (`docs/service.md`).
+
 ## The console (Linux)
 
 The status page is read only. To see and change the running receiver from the machine itself,

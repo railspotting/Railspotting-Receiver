@@ -31,5 +31,6 @@ nav:
   - title: "Setting up"
     pages:
       - {title: "Installing", url: "/installing/"}
+      - {title: "Running the service", url: "/service/"}
       - {title: "Antennas and RF", url: "/antennas/"}
       - {title: "Tested hardware", url: "/hardware/"}
