@@ -611,15 +611,18 @@ fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&P
     if !pl.note.is_empty() {
         let _ = writeln!(out, "{}", pl.note);
     }
-    // every run is kept (the last 30), so --send waits until the answer has settled
+    // each --send run is kept (the last 30), so sending waits until the answer has settled; a
+    // look without --send is shown against them but not counted
     let runs_path = itc_dir.join("place_runs.json");
     let mut runs: Vec<place::Run> = std::fs::read_to_string(&runs_path).ok()
         .and_then(|t| serde_json::from_str::<Vec<place::Run>>(&t).ok()).unwrap_or_default();
     runs.push(pl.proposals.iter().map(|pr| (pr.wiu.clone(), (pr.lat, pr.lon))).collect());
     let keep = runs.len().saturating_sub(30);
     runs.drain(..keep);
-    if let Err(e) = std::fs::write(&runs_path, serde_json::to_string(&runs).unwrap_or_default()) {
-        let _ = writeln!(out, "{}: {e}", runs_path.display());
+    if send {
+        if let Err(e) = std::fs::write(&runs_path, serde_json::to_string(&runs).unwrap_or_default()) {
+            let _ = writeln!(out, "{}: {e}", runs_path.display());
+        }
     }
     if pl.proposals.is_empty() {
         let _ = writeln!(out, "nothing to propose");

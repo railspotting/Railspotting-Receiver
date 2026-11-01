@@ -17,13 +17,15 @@
 //!    equally good fit agrees on, and that no other place fits as well, are proposed, at the
 //!    mapped signal's position, for an admin on the headend to confirm.
 //!
+//! Every map here is ordered, so the same logs and map give the same answer every run.
+//!
 //! Nothing here is tied to one railroad or place: what differs between them (the codes in a
 //! railroad's device status table, train speeds, milepost units, how closely the map matches) is
 //! in `Params`, with defaults that suit a typical North American main line.
 
 use serde_json::{json, Map, Value};
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
 use uuid::Uuid;
 
 const M_PER_MILE: f64 = 1609.344;
@@ -347,7 +349,7 @@ pub struct Placement {
 
 /// Units numbered one apart are the two directions at one place. In a run of three or more, the
 /// parity most pairs use decides. Maps each unit to its place's key.
-fn pair_units(all: &[String]) -> HashMap<String, String> {
+fn pair_units(all: &[String]) -> BTreeMap<String, String> {
     let mut groups: BTreeMap<&str, Vec<u32>> = BTreeMap::new();
     for w in all {
         if let Ok(n) = u32::from_str_radix(&w[6..], 16) {
@@ -371,7 +373,7 @@ fn pair_units(all: &[String]) -> HashMap<String, String> {
     let pairs = |p: u32| runs.iter().filter(|(_, r)| r.len() == 2 && r[0] % 2 == p).count();
     let parity = if pairs(1) >= pairs(0) { 1 } else { 0 };
     let id = |g: &str, n: u32| format!("{g}{n:04x}");
-    let mut loc = HashMap::new();
+    let mut loc = BTreeMap::new();
     for (g, run) in &runs {
         let mut k = 0;
         if run.len() > 2 && run[0] % 2 != parity {
@@ -393,17 +395,17 @@ fn pair_units(all: &[String]) -> HashMap<String, String> {
 /// A train's drops: each place once, at the time it first dropped.
 struct Move {
     seq: Vec<String>,
-    seen: HashMap<String, f64>,
+    seen: BTreeMap<String, f64>,
     last: f64,
 }
 
 /// Each unit's drops from proceed to stop, as (time, place). `gaps` are spans with no
 /// reception: a drop just after one may be a state missed, not a train.
-fn drops(changes: &[Change], loc: &HashMap<String, String>, gaps: &[(f64, f64)], p: &Params) -> Vec<(f64, String)> {
+fn drops(changes: &[Change], loc: &BTreeMap<String, String>, gaps: &[(f64, f64)], p: &Params) -> Vec<(f64, String)> {
     let mut sorted: Vec<&Change> = changes.iter().collect();
     sorted.sort_by(|a, b| a.t.total_cmp(&b.t));
     // each field's history: [(t, code)] at every change
-    let mut fields: HashMap<&str, Vec<Vec<(f64, i64)>>> = HashMap::new();
+    let mut fields: BTreeMap<&str, Vec<Vec<(f64, i64)>>> = BTreeMap::new();
     for c in sorted {
         let f = fields.entry(&c.wiu).or_default();
         for (i, &code) in c.codes.iter().enumerate() {
@@ -442,7 +444,7 @@ fn line_order(drops: &[(f64, String)], p: &Params) -> (Vec<String>, Vec<Move>) {
             Some(m) => t - m.last > p.train_gap_s || m.seen.get(l).is_some_and(|s| t - s > p.revisit_s),
         };
         if new {
-            moves.push(Move { seq: vec![], seen: HashMap::new(), last: *t });
+            moves.push(Move { seq: vec![], seen: BTreeMap::new(), last: *t });
         }
         let Some(m) = moves.last_mut() else { continue };
         if !m.seq.contains(l) {
@@ -453,8 +455,8 @@ fn line_order(drops: &[(f64, String)], p: &Params) -> (Vec<String>, Vec<Move>) {
     }
     moves.retain(|m| m.seq.len() > 1);
     // a train going the other way passes them in reverse: turn each to agree with what is known
-    let mut votes: HashMap<(String, String), i64> = HashMap::new();
-    let v = |votes: &HashMap<(String, String), i64>, a: &str, b: &str| *votes.get(&(a.to_string(), b.to_string())).unwrap_or(&0);
+    let mut votes: BTreeMap<(String, String), i64> = BTreeMap::new();
+    let v = |votes: &BTreeMap<(String, String), i64>, a: &str, b: &str| *votes.get(&(a.to_string(), b.to_string())).unwrap_or(&0);
     let mut by_len: Vec<&Move> = moves.iter().collect();
     by_len.sort_by_key(|m| Reverse(m.seq.len()));
     for m in &by_len {
@@ -482,7 +484,7 @@ fn line_order(drops: &[(f64, String)], p: &Params) -> (Vec<String>, Vec<Move>) {
         }
     }
     let score = |u: &str| -> i64 { placed.iter().map(|o| (v(&votes, u, o) - v(&votes, o, u)).signum()).sum() };
-    let scores: HashMap<String, i64> = placed.iter().map(|l| (l.clone(), score(l))).collect();
+    let scores: BTreeMap<String, i64> = placed.iter().map(|l| (l.clone(), score(l))).collect();
     placed.sort_by(|a, b| scores[b].cmp(&scores[a]));
     (placed, moves)
 }
@@ -496,17 +498,17 @@ pub fn layout(changes: &[Change], gaps: &[(f64, f64)], p: &Params) -> (Layout, V
     if all.is_empty() {
         return (Layout::default(), vec![]);
     }
-    let loc = if p.pair_twins { pair_units(&all) } else { HashMap::new() };
+    let loc = if p.pair_twins { pair_units(&all) } else { BTreeMap::new() };
     let ds = drops(changes, &loc, gaps, p);
     let (order, moves) = line_order(&ds, p);
-    let mut cp: HashSet<&str> = HashSet::new();
+    let mut cp: BTreeSet<&str> = BTreeSet::new();
     for c in changes {
         if c.codes.iter().any(|x| p.control_point_codes.contains(x)) {
             cp.insert(&c.wiu);
         }
     }
     let mut locations: Vec<Location> = order.iter().map(|_| Location { units: vec![], control_point: false, offset_s: None }).collect();
-    let index: HashMap<&str, usize> = order.iter().enumerate().map(|(i, l)| (l.as_str(), i)).collect();
+    let index: BTreeMap<&str, usize> = order.iter().enumerate().map(|(i, l)| (l.as_str(), i)).collect();
     let mut unplaced = vec![];
     for w in &all {
         let l = loc.get(w).map(String::as_str).unwrap_or(w);
@@ -658,7 +660,7 @@ fn signal_places(signals: &[Signal], cluster_m: f64) -> Vec<(Vec<usize>, f64, f6
 /// Distances along the line from a point, signed by side. Along the mapped track when there is
 /// one, else along the main direction of the mapped signals.
 enum Line {
-    Track { xy: HashMap<i64, (f64, f64)>, next: HashMap<i64, Vec<(i64, f64)>>, g: (f64, f64) },
+    Track { xy: BTreeMap<i64, (f64, f64)>, next: BTreeMap<i64, Vec<(i64, f64)>>, g: (f64, f64) },
     Axis { g: (f64, f64), mid: (f64, f64), axis: (f64, f64) },
     /// No mapped track, and the signals don't lie along a straight line: nothing to measure on.
     Bent { spread: f64 },
@@ -669,8 +671,8 @@ impl Line {
         let g0 = places.first().map(|q| (q.1, q.2)).unwrap_or((0.0, 0.0));
         let g = grid(g0.0, g0.1);
         if p.track && !osm.ways.is_empty() {
-            let mut xy = HashMap::new();
-            let mut next: HashMap<i64, Vec<(i64, f64)>> = HashMap::new();
+            let mut xy = BTreeMap::new();
+            let mut next: BTreeMap<i64, Vec<(i64, f64)>> = BTreeMap::new();
             for w in &osm.ways {
                 for n in &w.nodes {
                     xy.insert(n.0, g(n.1, n.2));
@@ -749,7 +751,7 @@ impl Line {
                 let out = next.get(&start).cloned().unwrap_or_default();
                 let heading = |n: i64| { let q = xy[&n]; (q.0 - s.0, q.1 - s.1) };
                 let h0 = out.first().map(|o| heading(o.0)).unwrap_or((1.0, 0.0));
-                let mut best: HashMap<i64, (f64, f64)> = HashMap::new(); // node: (distance, side)
+                let mut best: BTreeMap<i64, (f64, f64)> = BTreeMap::new(); // node: (distance, side)
                 let mut heap = BinaryHeap::new();
                 best.insert(start, (0.0, 1.0));
                 for &(n, d) in &out {
@@ -911,7 +913,7 @@ pub fn place(lay: &Layout, osm: &Osm, p: &Params) -> Placement {
                     }
                 }
                 cand.sort_by(|a, b| a.0.total_cmp(&b.0));
-                let (mut li, mut lj, mut pairs) = (HashSet::new(), HashSet::new(), vec![]);
+                let (mut li, mut lj, mut pairs) = (BTreeSet::new(), BTreeSet::new(), vec![]);
                 for &(_, i, j) in &cand {
                     if li.insert(i) && lj.insert(j) {
                         pairs.push((i, j));
@@ -1226,6 +1228,15 @@ mod tests {
             assert_eq!(pl.proposals.len(), 10, "{}", pl.note);
             check(&pl, straight);
         }
+    }
+
+    #[test]
+    fn the_same_evidence_gives_the_same_answer() {
+        let (ch, passes) = traffic(6, (13, 15));
+        let o = osm(hairpin, "mi", true);
+        let runs: Vec<Vec<Proposal>> = (0..5).map(|_| placed(&ch, &passes, &o, &p()).1.proposals).collect();
+        assert!(!runs[0].is_empty());
+        assert!(runs.iter().all(|r| *r == runs[0]));
     }
 
     #[test]
