@@ -97,7 +97,7 @@ pub enum ItcCmd {
         #[arg(long)]
         osm: Option<PathBuf>,
         /// a setting for this run, over receiver.json's "itc_place" (e.g. --set speed_mph=[30,60]
-        /// or --set detector_milepost=475.8); repeat for more
+        /// or --set detector_milepost=123.4); repeat for more
         #[arg(long = "set", value_name = "KEY=VALUE")]
         set: Vec<String>,
         /// queue the proposals for the headend; the running receiver uploads them while ITC
