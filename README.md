@@ -141,7 +141,8 @@ For setting up, and for recordings, the receiver has ITC commands that use a don
 `itc place` needs no dongle: it reads the running receiver's state changes and detector
 announcements, works out where the wayside units are (their order from train timing, their
 distance from a defect detector, matched to OpenStreetMap signals and track near the base stations
-heard), and prints the positions. `--send` queues them as proposals for the headend (`type:
+heard), and prints the positions. `--send` queues the ones the last few runs agree on (run it daily) as
+proposals for the headend (`type:
 "place"`, contract v1.18 section 7), which the running receiver uploads while ITC upload is on; an
 admin confirms them on the website. It proposes only what every nearly-as-good fit agrees on, so
 with little evidence it proposes nothing and says why. Its settings (`docs/itc.md`, "Placing units

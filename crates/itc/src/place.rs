@@ -82,6 +82,9 @@ pub struct Params {
     pub axis_max_spread: f64,
     /// How far around the base stations heard to look for signals, km (for the fetch).
     pub radius_km: f64,
+    /// A position is sent only once this many runs in a row have proposed it, so an answer that
+    /// moves as trains come in waits until it settles.
+    pub confirm_runs: usize,
 }
 
 impl Default for Params {
@@ -112,6 +115,7 @@ impl Default for Params {
             snap_m: 75.0,
             axis_max_spread: 0.05,
             radius_km: 30.0,
+            confirm_runs: 3,
         }
     }
 }
@@ -121,7 +125,7 @@ pub const PARAM_KEYS: &[&str] = &[
     "proceed_codes", "stop_codes", "control_point_codes", "pair_twins", "flicker_s", "train_gap_s", "revisit_s",
     "pass_window_s", "detector_milepost", "railroad", "milepost_unit", "speed_mph", "speed_kmh", "cluster_m",
     "tolerance_m", "tolerance_share", "ambiguous_m", "fit_margin", "min_matches", "min_matches_without_mileposts", "milepost_slack",
-    "track", "snap_m", "axis_max_spread", "radius_km",
+    "track", "snap_m", "axis_max_spread", "radius_km", "confirm_runs",
 ];
 
 impl Params {
@@ -189,6 +193,7 @@ impl Params {
             "snap_m" => self.snap_m = num(1.0, 2000.0)?,
             "axis_max_spread" => self.axis_max_spread = num(0.0, 1.0)?,
             "radius_km" => self.radius_km = num(1.0, 200.0)?,
+            "confirm_runs" => self.confirm_runs = num(1.0, 30.0)? as usize,
             _ => return Err(format!("itc_place has no setting {key:?}; there are: {}", PARAM_KEYS.join(", "))),
         }
         Ok(())
@@ -232,6 +237,7 @@ impl Params {
         diff!(snap_m);
         diff!(axis_max_spread);
         diff!(radius_km);
+        diff!(confirm_runs);
         Value::Object(m)
     }
 
@@ -987,6 +993,20 @@ pub fn place(lay: &Layout, osm: &Osm, p: &Params) -> Placement {
     out
 }
 
+/// One run's proposals: each unit's position.
+pub type Run = BTreeMap<String, (f64, f64)>;
+
+/// The units the last `n` runs (newest last) all proposed at the same position: settled
+/// enough to send.
+pub fn steady(runs: &[Run], n: usize) -> Vec<String> {
+    let n = n.max(1);
+    if runs.len() < n {
+        return vec![];
+    }
+    let recent = &runs[runs.len() - n..];
+    recent[n - 1].iter().filter(|(w, at)| recent.iter().all(|r| r.get(*w) == Some(*at))).map(|(w, _)| w.clone()).collect()
+}
+
 /// The `place` record for a proposal. Its ID comes from the unit and position, so the same
 /// proposal sent again is a duplicate on the headend.
 pub fn record(ns: &Uuid, p: &Proposal, t: f64) -> Value {
@@ -1305,6 +1325,19 @@ mod tests {
         assert!(Params::from_json(&json!({"stop_codes": [40]})).is_err());
         let e = Params::from_json(&json!({"tolerence_m": 1})).unwrap_err();
         assert!(e.contains("tolerance_m"), "{e}");
+    }
+
+    #[test]
+    fn only_positions_the_last_runs_agree_on_are_steady() {
+        let run = |v: &[(&str, f64)]| -> Run { v.iter().map(|(w, x)| (w.to_string(), (40.0, *x))).collect() };
+        let a = run(&[("1234560101", -90.0), ("1234560103", -90.1)]);
+        let b = run(&[("1234560101", -90.0), ("1234560103", -90.2)]);
+        assert!(steady(&[a.clone(), a.clone()], 3).is_empty());
+        assert_eq!(steady(&[a.clone(), a.clone(), a.clone()], 3), vec!["1234560101", "1234560103"]);
+        assert_eq!(steady(&[a.clone(), a.clone(), b.clone()], 3), vec!["1234560101"]);
+        // a run with nothing to propose starts the count again
+        assert!(steady(&[a.clone(), a.clone(), Run::new(), a.clone()], 3).is_empty());
+        assert_eq!(steady(&[b], 1), vec!["1234560101", "1234560103"]);
     }
 
     #[test]

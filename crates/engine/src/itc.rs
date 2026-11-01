@@ -611,6 +611,16 @@ fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&P
     if !pl.note.is_empty() {
         let _ = writeln!(out, "{}", pl.note);
     }
+    // every run is kept (the last 30), so --send waits until the answer has settled
+    let runs_path = itc_dir.join("place_runs.json");
+    let mut runs: Vec<place::Run> = std::fs::read_to_string(&runs_path).ok()
+        .and_then(|t| serde_json::from_str::<Vec<place::Run>>(&t).ok()).unwrap_or_default();
+    runs.push(pl.proposals.iter().map(|pr| (pr.wiu.clone(), (pr.lat, pr.lon))).collect());
+    let keep = runs.len().saturating_sub(30);
+    runs.drain(..keep);
+    if let Err(e) = std::fs::write(&runs_path, serde_json::to_string(&runs).unwrap_or_default()) {
+        let _ = writeln!(out, "{}: {e}", runs_path.display());
+    }
     if pl.proposals.is_empty() {
         let _ = writeln!(out, "nothing to propose");
         return Ok(());
@@ -619,13 +629,20 @@ fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&P
     let how = if pl.along_track { "along the mapped track" } else { "along a straight line" };
     let held = if pl.mileposts { "the detector held to its milepost by mapped markers" } else { "no milepost markers fit" };
     let _ = writeln!(out, "best fit: {} places on mapped signals at about {:.0} mph, {how}, {held}{ties}", pl.matched, pl.speed * 2.23694);
+    let settled = place::steady(&runs, p.confirm_runs);
     for pr in &pl.proposals {
         let name = pr.name.as_ref().map(|n| format!("  \"{n}\"")).unwrap_or_default();
-        let _ = writeln!(out, "  #{:<3} {}  {:.5}, {:.5}  OSM {}{name}", pr.location + 1, pr.wiu, pr.lat, pr.lon,
+        let mark = if settled.contains(&pr.wiu) { "settled" } else { "new or moved" };
+        let _ = writeln!(out, "  #{:<3} {}  {:.5}, {:.5}  {mark:<12} OSM {}{name}", pr.location + 1, pr.wiu, pr.lat, pr.lon,
                          pr.signals.iter().map(i64::to_string).collect::<Vec<_>>().join(","));
     }
+    let _ = writeln!(out, "{} proposals, {} settled (the same in the last {} runs)", pl.proposals.len(), settled.len(), p.confirm_runs);
     if !send {
-        let _ = writeln!(out, "{} proposals; add --send to queue them for the headend", pl.proposals.len());
+        let _ = writeln!(out, "add --send to queue the settled ones for the headend");
+        return Ok(());
+    }
+    if settled.is_empty() {
+        let _ = writeln!(out, "none settled yet; nothing queued");
         return Ok(());
     }
     let cfg = railspotting_common::load_cached_config(&state);
@@ -633,11 +650,11 @@ fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&P
         return Err("ITC upload is off for this receiver (the owner turns it on on the receiver's page); nothing queued".into());
     }
     let outbox = railspotting_store::ItcOutbox::open(state.join("itc_outbox.db")).map_err(|e| format!("ITC outbox: {e:?}"))?;
-    for pr in &pl.proposals {
+    for pr in pl.proposals.iter().filter(|pr| settled.contains(&pr.wiu)) {
         outbox.add(&place::record(&crate::agent::ITC_NAMESPACE, pr, now)).map_err(|e| format!("ITC outbox: {e:?}"))?;
     }
-    let _ = writeln!(out, "queued {} proposals; the running receiver uploads them (watch: journalctl -u railspotting-receiver -f)",
-                     pl.proposals.len());
+    let _ = writeln!(out, "queued {} settled proposals; the running receiver uploads them (watch: journalctl -u railspotting-receiver -f)",
+                     settled.len());
     Ok(())
 }
 

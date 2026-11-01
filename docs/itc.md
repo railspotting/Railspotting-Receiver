@@ -181,8 +181,11 @@ sudo -u railspotting bin/railspotting-receiver --config receiver.json itc place
    detector's milepost when markers are mapped). Each fit scores by how close its places land on
    signals; fits nearly as good are rivals, and only matches no rival contradicts are proposed.
 
-It prints what it found and why. With `--send` the proposals go to the headend with the next ITC
-upload (only while ITC upload is on), where an admin confirms them. With one detector and a few
+It prints what it found and why, and keeps each run's answer in `state/itc/place_runs.json`.
+With `--send` it queues only positions the last few runs (`confirm_runs`, 3) all gave, so an
+answer that still moves as trains come in waits; run it once a day and positions go out once they
+settle. They go to the headend with the next ITC upload (only while ITC upload is on), where an
+admin confirms them. With one detector and a few
 dozen trains the evidence often fits more than one layout: then it proposes nothing and says so.
 More trains, a second detector or a narrower speed range settle it. Places with no mapped signal
 nearby get no proposal: mapping those signals in OpenStreetMap is the way to add them.
@@ -210,6 +213,7 @@ The defaults suit a typical North American main line. Where yours differs, set i
 | `cluster_m` | `120` | mapped signals closer than this are one place |
 | `flicker_s`, `train_gap_s`, `revisit_s`, `pass_window_s` | `10`, `720`, `600`, `1200` | timing: a proceed too short to count, drops that are another train, a train back at a place, drops that count for an announcement |
 | `radius_km` | `30` | how far around the base stations to fetch map data |
+| `confirm_runs` | `3` | runs in a row that must give the same position before `--send` sends it |
 
 ## What is shared
 
