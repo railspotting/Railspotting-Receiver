@@ -192,7 +192,21 @@ the owners' agreement.
 **Retention.** 45 days, the same as trains, as a setting. Base station records are kept until 45
 days after a base was last heard.
 
-## 7. Wayside unit positions (later; receivers may ignore)
+## 7. Wayside unit positions (proposals built; `itc_units` later)
+
+A receiver may propose where a unit is, as a record on `POST /itc`:
+
+```json
+{"id": "…", "type": "place", "wiu": "1a2b3c0417", "lat": 40.5103, "lon": -90.2391, "basis": "osm_signal", "t": 1793012345.5}
+```
+
+The headend lists it among the unit's suggestions for an admin to confirm; it is accepted, or
+rejected with a reason like any record, and a later proposal from the same receiver replaces its
+earlier one. `t` (when it was worked out) is for the receiver's outbox; the headend ignores it.
+The receiver sends these only when asked (`railspotting-receiver itc place --send`), at the
+position of the mapped signal it matched, so `basis` is `osm_signal`. The ID is a UUID v5 of
+`itc-place:` + `wiu` + `:` + `lat` + `:` + `lon` (5 decimals), so the same proposal sent again
+is a duplicate.
 
 The headend will hold where each unit is, so every receiver and the website share one answer:
 
@@ -207,8 +221,8 @@ The headend will hold where each unit is, so every receiver and the website shar
   `detector_pass`).
 - An admin confirms a placement on the website. Until then it is used but marked unconfirmed.
 
-This part is built after the change stream works. Its exact fields will be fixed then, as v1.19
-if they change. The receiver does not build it yet.
+`itc_units` will be added once placements have settled, as a later contract if its fields
+change. The receiver does not read it yet.
 
 ## Compatibility
 

@@ -861,7 +861,9 @@ pub fn main_with(argv: Vec<String>, out: &mut dyn Write) -> i32 {
     // ITC commands need neither receiver.json nor the receiver's log, which goes to stdout:
     // theirs is JSON for other programs (progress goes to stderr)
     if let Some(Cmd::Itc { action }) = &args.cmd {
-        return crate::itc::cmd_itc(action, out);
+        if !action.needs_settings() {
+            return crate::itc::cmd_itc(action, out);
+        }
     }
     let mut config = PathBuf::from(&args.config);
     if args.config == "receiver.json" && !config.exists() && Path::new(INSTALLED_CONFIG).exists() {
@@ -893,7 +895,7 @@ pub fn main_with(argv: Vec<String>, out: &mut dyn Write) -> i32 {
         Some(Cmd::Console { socket }) => cmd_console(&config, socket.as_deref(), out),
         Some(Cmd::TestTranscription) => cmd_test_transcription(&settings, 60.0, out),
         Some(Cmd::Detector { action }) => cmd_detector(&settings, action, out),
-        Some(Cmd::Itc { action }) => crate::itc::cmd_itc(action, out),
+        Some(Cmd::Itc { action }) => crate::itc::cmd_itc_settings(&settings, action, out),
         Some(Cmd::Link) => cmd_link(&settings, 30.0, out),
         Some(Cmd::Run { simulate }) => run(settings, AgentOptions { simulate: *simulate, ..Default::default() }),
         None => {

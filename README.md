@@ -138,6 +138,17 @@ For setting up, and for recordings, the receiver has ITC commands that use a don
     railspotting-receiver itc decode --input a.cu8      # a recording
     railspotting-receiver itc record --out a.cu8        # raw samples to decode later
 
+`itc place` needs no dongle: it reads the running receiver's state changes and detector
+announcements, works out where the wayside units are (their order from train timing, their
+distance from a defect detector, matched to OpenStreetMap signals and track near the base stations
+heard), and prints the positions. `--send` queues them as proposals for the headend (`type:
+"place"`, contract v1.18 section 7), which the running receiver uploads while ITC upload is on; an
+admin confirms them on the website. It proposes only what every nearly-as-good fit agrees on, so
+with little evidence it proposes nothing and says why. Its settings (`docs/itc.md`, "Placing units
+on the map") go in `itc_place` in `receiver.json`, or for one run `--set key=value`; the defaults
+suit a typical North American main line. The map data fetched is kept a week in
+`state/itc/osm_signals.json`; `--osm file.json` uses an Overpass answer saved elsewhere.
+
 `crates/itc/messages.md` describes the messages; `crates/itc/findings.md` how the protocol was
 worked out.
 

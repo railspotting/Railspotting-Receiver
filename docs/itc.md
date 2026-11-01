@@ -159,12 +159,65 @@ JSON fields are in [`crates/itc/messages.md`]({{ site.repo }}/blob/main/crates/i
   messages live to a monitor program on the same machine.
 - **The Android app** has an ITC mode of its own for a dongle on a phone.
 
+## Placing units on the map
+
+A unit's messages carry its ID and states, never its position, so the headend has to work out
+where each one is. It does that itself from mapped signals and trains with a known direction and
+speed. Where it can't (one receiver, a detector that announces no speed), the receiver can
+propose positions:
+
+```bash
+cd /opt/railspotting-receiver
+sudo -u railspotting bin/railspotting-receiver --config receiver.json itc place
+```
+
+1. **Order along the line:** the order trains drop the signals to stop, as in the rail layout.
+2. **Distance from a defect detector:** a train announced by a detector drops the signals either
+   side of it just before and after. Half the difference between trains one way and the other
+   cancels the train's length, leaving each place's distance from the detector in seconds.
+3. **Matching mapped signals:** OpenStreetMap signals, milepost markers and track near the base
+   stations heard. Distances are measured along the mapped track, so curves and junctions are
+   fine. The train speed, the direction and the detector's place are tried in turn (held to the
+   detector's milepost when markers are mapped). Each fit scores by how close its places land on
+   signals; fits nearly as good are rivals, and only matches no rival contradicts are proposed.
+
+It prints what it found and why. With `--send` the proposals go to the headend with the next ITC
+upload (only while ITC upload is on), where an admin confirms them. With one detector and a few
+dozen trains the evidence often fits more than one layout: then it proposes nothing and says so.
+More trains, a second detector or a narrower speed range settle it. Places with no mapped signal
+nearby get no proposal: mapping those signals in OpenStreetMap is the way to add them.
+
+The defaults suit a typical North American main line. Where yours differs, set it in
+`receiver.json` (`"itc_place": {"speed_mph": [30, 50], "railroad": "NS"}`), or for one run with
+`--set key=value` (repeatable); the command prints the settings that differ from the defaults.
+
+| Setting | Default | |
+|---|---|---|
+| `proceed_codes`, `stop_codes` | `[2,3,5,6,8]`, `[13,15]` | the codes that let a train on and that stop it; the railroad's device status table decides them |
+| `control_point_codes` | `[15]` | codes that make a place a control point |
+| `pair_twins` | `true` | units numbered one apart share a place |
+| `detector_milepost`, `railroad` | none | the detector to measure from, and the railroad whose detectors count; by default the one heard most |
+| `milepost_unit` | `"mi"` | `"km"` where the railroad counts kilometres |
+| `speed_mph` (or `speed_kmh`) | `[25, 70]` | the train speeds tried; the line's usual speed narrows it |
+| `tolerance_m`, `tolerance_share` | `250`, `0.08` | how far a place may land from its signal: a base plus a share of its distance from the detector |
+| `ambiguous_m` | `200` | a match is left out when another place lands within this much as close |
+| `fit_margin` | `0.15` | fits scoring within this share of the best are rivals |
+| `min_matches`, `min_matches_without_mileposts` | `3`, `5` | places a fit must put on signals |
+| `milepost_slack` | `1.5` | how far (in mileposts) the detector may sit from its milepost |
+| `track` | `true` | measure along the mapped track; `false` measures along a straight line |
+| `snap_m` | `75` | a signal further than this from the mapped track is off it |
+| `axis_max_spread` | `0.05` | without the track, a straight line is used only when the signals stray from it by less than this share of its length |
+| `cluster_m` | `120` | mapped signals closer than this are one place |
+| `flicker_s`, `train_gap_s`, `revisit_s`, `pass_window_s` | `10`, `720`, `600`, `1200` | timing: a proceed too short to count, drops that are another train, a train back at a place, drops that count for an announcement |
+| `radius_km` | `30` | how far around the base stations to fetch map data |
+
 ## What is shared
 
 - **Nothing, by default.** Decoded ITC stays on the receiver.
 - **When the owner turns ITC upload on** for the receiver on the website, the receiver sends each
   wayside unit's **state changes** and the **base stations** it hears, never the repeats (contract
-  v1.18). Turned off again, it sends nothing more and drops what was waiting.
+  v1.18), and positions proposed with `itc place --send`. Turned off again, it sends nothing more
+  and drops what was waiting.
 - The heartbeat carries a short ITC summary (channels, bases, units heard, message counts) while a
   dongle does ITC, so the owner can see it is working.
 - **RailSpotting never makes ITC public**: not on the map, history, trains, streams or public
