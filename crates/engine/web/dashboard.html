@@ -7,6 +7,8 @@
 <style>
 :root {
   color-scheme: light;
+  /* how tall a table or log may get before it scrolls inside its card */
+  --scroll-max: 26rem;
   --bg: #f4f4f2;
   --surface: #fcfcfb;
   --border: #e2e1dc;
@@ -135,7 +137,12 @@ a.button:hover { background: var(--row-hover); }
 .axis line, .gridline { stroke: var(--grid); }
 .empty { fill: var(--muted); font-size: 12px; }
 .sdrs { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
-.scroll { overflow-x: auto; }
+.scroll { overflow: auto; max-height: var(--scroll-max); }
+/* long tables scroll inside their card with their headings in view, so the page stays short */
+.scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); box-shadow: inset 0 -1px 0 var(--border); }
+.scroll[data-rail] { max-height: none; }
+/* "Full length" in the header lifts the limit */
+body.full .scroll, body.full .logs { max-height: none; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 th { color: var(--text-2); font-weight: 600; font-size: 12px; white-space: nowrap; }
@@ -208,7 +215,7 @@ button.primary:hover { background: var(--accent); filter: brightness(1.08); }
 .code { display: inline-block; min-width: 22px; text-align: center; padding: 0 4px; border-radius: 4px; font-size: 12px;
   border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .code.chg { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.logs { max-height: 420px; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.logs { max-height: var(--scroll-max); overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .logs div { padding: 1px 0; border-bottom: 1px solid var(--grid); overflow-wrap: anywhere; }
 .logs .lv { display: inline-block; width: 64px; color: var(--muted); }
 .logs .WARNING .lv { color: var(--serious); }
@@ -233,6 +240,10 @@ button.primary:hover { background: var(--accent); filter: brightness(1.08); }
     <span class="sub mono" id="device">...</span>
     <span class="tag" id="sim" hidden>simulation</span>
     <span class="muted" id="updated"></span>
+    <div class="seg" role="group" aria-label="Page length">
+      <button type="button" id="full-length" aria-pressed="false"
+              title="Show long tables and logs at full length instead of scrolling inside their cards">Full length</button>
+    </div>
     <a class="site-link" href="https://railspotting.com/" target="_blank" rel="noopener"
        title="Open RailSpotting.com" aria-label="Open RailSpotting.com">
       <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
@@ -862,6 +873,15 @@ $("#act-tabs").addEventListener("click", (e) => {
   if (b) showTab(b.dataset.tab);
 });
 try { if (localStorage.getItem("rs-tab") === "recordings") showTab("recordings"); } catch (e) { /* storage is optional */ }
+
+// long tables and logs scroll inside their cards; "Full length" shows them whole (remembered)
+function setFullLength(on) {
+  document.body.classList.toggle("full", on);
+  $("#full-length").setAttribute("aria-pressed", String(on));
+  try { localStorage.setItem("rs-full-length", on ? "1" : "0"); } catch (e) { /* storage is optional */ }
+}
+$("#full-length").addEventListener("click", () => setFullLength(!document.body.classList.contains("full")));
+try { if (localStorage.getItem("rs-full-length") === "1") setFullLength(true); } catch (e) { /* storage is optional */ }
 
 // detector profiles --------------------------------------------------------------------------
 
