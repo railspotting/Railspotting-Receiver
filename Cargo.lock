@@ -3581,6 +3581,7 @@ dependencies = [
 name = "railspotting-dsp"
 version = "2.0.0"
 dependencies = [
+ "flate2",
  "libc",
  "log",
  "num-complex",

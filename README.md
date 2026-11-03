@@ -116,10 +116,12 @@ Anything left out takes the default shown in `receiver.json.example`.
 
 A dongle with the `itc` role (a 220 MHz antenna, a whip about 33 cm long) decodes ITC on its own:
 it listens to the national channel (102) for base station beacons, adds the local channel of
-every base heard, and writes each decoded message to `state/itc/YYYY-MM-DD.jsonl` (kept for 7
-days) and to a local feed on 127.0.0.1:8221 that a monitor (RailSpotting-ITC-Monitor) can read.
-Each wayside unit's state is tracked, and only its changes are kept for looking back
-(`state/itc/changes/YYYY-MM-DD.jsonl`, kept as long as the messages). `status` shows the channels,
+every base heard, and writes each decoded message to `state/itc/YYYY-MM-DD.jsonl` and to a local
+feed on 127.0.0.1:8221 that a monitor (RailSpotting-ITC-Monitor) can read. Each wayside unit's
+state is tracked, and its changes (with the base stations heard) are kept for looking back in
+`state/itc/changes/YYYY-MM-DD.jsonl`. The message log is large (about 300 MB a day, nearly all
+repeats), so it is kept 2 days, finished days gzipped; the changes (about 0.3 MB a day) are kept
+45 days. `status` shows the channels,
 the bases heard and the message counts; the status page's ITC tab shows those, the units and their
 changes, and a rail layout (see below). ITC messages describe railroad operations: they stay on
 the receiver. When the owner turns ITC upload on for the receiver on the website (`/config`
@@ -128,7 +130,9 @@ sends each wayside unit's state changes and the base stations it hears, never th
 off, it sends nothing and drops what is queued. The heartbeat carries a short ITC summary while a
 dongle does ITC.
 The role's settings (`sdr.devices` entry for `itc`): `channels` (fixed ITC channel numbers instead
-of beacons), `serve` (the feed's address; empty turns it off), `keep_days`, `center_mhz`.
+of beacons), `serve` (the feed's address; empty turns it off), `keep_days` (days of message log,
+today included; 2), `changes_keep_days` (45), `log_messages` (`false` keeps no message log; the
+changes are kept either way), `center_mhz`.
 
 For setting up, and for recordings, the receiver has ITC commands that use a dongle directly
 (stop the service first, or name a dongle it does not hold with `--serial`):

@@ -5,15 +5,21 @@
 //! of every base whose beacon is heard, when it is inside the dongle's window. A fixed list can be
 //! given instead (`channels` in the dongle's settings, ITC channel numbers).
 //!
-//! Decoded messages go to a daily log (`state/itc/YYYY-MM-DD.jsonl`, kept `keep_days`) and to a
-//! local feed for a monitor (`serve`, 127.0.0.1:8221 by default; empty turns it off). They describe
+//! Decoded messages go to a daily log (`state/itc/YYYY-MM-DD.jsonl`) and to a local feed for a
+//! monitor (`serve`, 127.0.0.1:8221 by default; empty turns it off). They describe
 //! railroad operations, so they are not sent to the headend. When the owner turns ITC upload on
 //! (`/config` `itc.upload`, contract v1.18), wayside state changes and base stations are, as
 //! records from `railspotting_itc::changes`; repeats never are.
 //!
 //! For the status page's ITC tab the same tracker always runs here too, upload or not, and each
-//! wayside change (or first state) goes to `state/itc/changes/YYYY-MM-DD.jsonl`, so the page can
-//! look back without reading the busy message log.
+//! wayside change (or first state) and each base station record goes to
+//! `state/itc/changes/YYYY-MM-DD.jsonl`, so the page can look back without reading the busy
+//! message log.
+//!
+//! Storage: the message log is about 300 MB a day, the changes about 0.3 MB, and almost every
+//! message repeats a state already known. So the changes are kept long (`changes_keep_days`, 45)
+//! and the message log short (`keep_days`, 2: today and yesterday), each finished day gzipped
+//! (about a twelfth the size) in the background. `log_messages: false` keeps no message log.
 //!
 //! For the owner's own screens (the phone app), `units` gives each wayside unit's state as last
 //! heard and the latest changes, from that same tracker. It is not part of `status`.
@@ -34,7 +40,9 @@ use std::path::{Path, PathBuf};
 /// A burst opens this many dB above its channel's noise floor.
 const OPEN_DB: f32 = 8.0;
 pub const DEFAULT_SERVE: &str = "127.0.0.1:8221";
-pub const DEFAULT_KEEP_DAYS: u64 = 7;
+/// Days of message log kept, today included, and days of state changes kept.
+pub const DEFAULT_KEEP_DAYS: u64 = 2;
+pub const DEFAULT_CHANGES_KEEP_DAYS: u64 = 45;
 /// The heartbeat counts messages over this many seconds.
 pub const SUMMARY_S: f64 = 60.0;
 /// The heartbeat lists base stations heard within this many seconds.
@@ -115,7 +123,11 @@ pub struct ItcRx {
     made_for: (f64, f64),
     dir: PathBuf,
     keep_days: u64,
+    changes_keep_days: u64,
+    log_messages: bool,
     log: Option<(String, std::io::BufWriter<std::fs::File>)>,
+    /// The day old logs were last pruned and gzipped.
+    tidied: String,
     feed: Option<Feed>,
     pub serve: String,
     pub messages: u64,
@@ -158,7 +170,8 @@ fn utc_date(t: f64) -> String {
 }
 
 impl ItcRx {
-    /// From the dongle's settings: `channels` (ITC numbers), `serve`, `keep_days`.
+    /// From the dongle's settings: `channels` (ITC numbers), `serve`, `keep_days`,
+    /// `changes_keep_days`, `log_messages`.
     pub fn new(dev_cfg: &Value, state_dir: &Path) -> ItcRx {
         let fixed: Vec<i64> = dev_cfg.get("channels").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
         let serve = match dev_cfg.get("serve") {
@@ -167,6 +180,8 @@ impl ItcRx {
             Some(_) => String::new(),
         };
         let keep_days = dev_cfg.get("keep_days").and_then(Value::as_u64).unwrap_or(DEFAULT_KEEP_DAYS).max(1);
+        let changes_keep_days = dev_cfg.get("changes_keep_days").and_then(Value::as_u64).unwrap_or(DEFAULT_CHANGES_KEEP_DAYS).max(1);
+        let log_messages = dev_cfg.get("log_messages").and_then(Value::as_bool).unwrap_or(true);
         ItcRx {
             watched: if fixed.is_empty() { vec![NATIONAL_CH] } else { fixed.clone() },
             fixed,
@@ -174,7 +189,10 @@ impl ItcRx {
             made_for: (0.0, 0.0),
             dir: state_dir.join("itc"),
             keep_days,
+            changes_keep_days,
+            log_messages,
             log: None,
+            tidied: String::new(),
             feed: None,
             serve,
             messages: 0,
@@ -288,7 +306,10 @@ impl ItcRx {
                 }
             }
             let line = m.to_string();
-            self.write_log(t, &line);
+            self.tidy(t);
+            if self.log_messages {
+                self.write_log(t, &line);
+            }
             if let Some(f) = &self.feed {
                 f.send(&line);
             }
@@ -340,7 +361,6 @@ impl ItcRx {
                 log::warn!("ITC: {}: {e}", self.dir.display());
                 return;
             }
-            self.prune(&day);
             let path = self.dir.join(format!("{day}.jsonl"));
             match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
                 Ok(f) => self.log = Some((day, std::io::BufWriter::new(f))),
@@ -380,6 +400,11 @@ impl ItcRx {
             u.heard = u.heard.max(t);
         }
         let Some(r) = self.local.add(m) else { return };
+        if r["type"] == "base" {
+            // kept with the changes, so where the bases are outlasts the message log
+            self.write_change(t, &r);
+            return;
+        }
         if r["type"] != "wayside" {
             return;
         }
@@ -408,7 +433,7 @@ impl ItcRx {
                 log::warn!("ITC: {}: {e}", dir.display());
                 return;
             }
-            prune_days(&dir, &day, self.keep_days);
+            prune_days(&dir, &day, self.changes_keep_days);
             let path = dir.join(format!("{day}.jsonl"));
             match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
                 Ok(f) => self.changes_log = Some((day, std::io::BufWriter::new(f))),
@@ -460,17 +485,19 @@ impl ItcRx {
                "gaps": self.gaps.iter().map(|(a, b)| json!([a, b])).collect::<Vec<_>>()})
     }
 
-    /// Delete daily logs older than `keep_days` (file names sort by date).
-    fn prune(&self, today: &str) {
-        let Ok(rd) = std::fs::read_dir(&self.dir) else { return };
-        let mut days: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "jsonl")).collect();
-        days.sort();
-        let keep = self.keep_days as usize;
-        let old: Vec<&PathBuf> = days.iter().filter(|p| p.file_stem().is_some_and(|s| s.to_string_lossy().as_ref() < today)).collect();
-        if old.len() + 1 > keep {
-            for p in &old[..old.len() + 1 - keep] {
-                let _ = std::fs::remove_file(p);
-            }
+    /// Once a day: delete message logs older than `keep_days`, and gzip the finished days left,
+    /// in the background so decoding never waits on it.
+    fn tidy(&mut self, t: f64) {
+        let day = utc_date(t);
+        if self.tidied == day {
+            return;
+        }
+        self.tidied = day.clone();
+        prune_days(&self.dir, &day, self.keep_days);
+        let dir = self.dir.clone();
+        let spawned = std::thread::Builder::new().name("itc-gzip".into()).spawn(move || gzip_days(&dir, &day));
+        if let Err(e) = spawned {
+            log::warn!("ITC: cannot start gzipping old logs: {e}");
         }
     }
 
@@ -495,15 +522,52 @@ impl ItcRx {
 }
 
 /// Delete daily files (`YYYY-MM-DD.jsonl`) in `dir` so that `keep` days remain with today.
+/// A daily file's date ("2026-10-23" from "2026-10-23.jsonl" or "2026-10-23.jsonl.gz").
+fn file_day(p: &Path) -> Option<String> {
+    let name = p.file_name()?.to_string_lossy().to_string();
+    let day = name.strip_suffix(".jsonl.gz").or_else(|| name.strip_suffix(".jsonl"))?;
+    (day.len() == 10).then(|| day.to_string())
+}
+
+/// Delete daily files (plain or gzipped) so `keep` days are left, today included.
 fn prune_days(dir: &Path, today: &str, keep: u64) {
     let Ok(rd) = std::fs::read_dir(dir) else { return };
-    let mut days: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "jsonl")).collect();
-    days.sort();
-    let keep = keep as usize;
-    let old: Vec<&PathBuf> = days.iter().filter(|p| p.file_stem().is_some_and(|s| s.to_string_lossy().as_ref() < today)).collect();
-    if old.len() + 1 > keep {
-        for p in &old[..old.len() + 1 - keep] {
+    let mut old: Vec<(String, PathBuf)> = rd.filter_map(|e| e.ok().map(|e| e.path()))
+        .filter_map(|p| file_day(&p).map(|d| (d, p))).filter(|(d, _)| d.as_str() < today).collect();
+    old.sort();
+    let mut days: Vec<&String> = old.iter().map(|(d, _)| d).collect();
+    days.dedup();
+    let drop = (days.len() + 1).saturating_sub(keep as usize);
+    let cut: Vec<String> = days[..drop.min(days.len())].iter().map(|d| d.to_string()).collect();
+    for (d, p) in &old {
+        if cut.contains(d) {
             let _ = std::fs::remove_file(p);
+        }
+    }
+}
+
+/// Gzip the finished days' message logs in `dir` (each `.jsonl` before `today` becomes
+/// `.jsonl.gz`). Written to a `.part` file first, so a stop halfway loses nothing.
+fn gzip_days(dir: &Path, today: &str) {
+    use flate2::{write::GzEncoder, Compression};
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let mut plain: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "jsonl") && file_day(p).is_some_and(|d| d.as_str() < today)).collect();
+    plain.sort();
+    for p in plain {
+        let gz = p.with_extension("jsonl.gz");
+        let part = p.with_extension("jsonl.gz.part");
+        let done = (|| -> std::io::Result<()> {
+            let mut src = std::io::BufReader::new(std::fs::File::open(&p)?);
+            let mut enc = GzEncoder::new(std::io::BufWriter::new(std::fs::File::create(&part)?), Compression::default());
+            std::io::copy(&mut src, &mut enc)?;
+            enc.finish()?.flush()?;
+            std::fs::rename(&part, &gz)?;
+            std::fs::remove_file(&p)
+        })();
+        if let Err(e) = done {
+            let _ = std::fs::remove_file(&part);
+            log::warn!("ITC: gzipping {}: {e}", p.display());
         }
     }
 }
@@ -523,6 +587,10 @@ pub fn read_changes(state_dir: &Path, t0: f64, limit: usize) -> Vec<Value> {
         let Ok(text) = std::fs::read_to_string(&f) else { continue };
         for line in text.lines() {
             let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+            // base station records are kept here too; the page wants the wayside changes
+            if v["type"] == "base" {
+                continue;
+            }
             if v["t"].as_f64().is_some_and(|t| t >= t0) {
                 out.push_back(v);
                 if out.len() > limit {
@@ -551,6 +619,9 @@ mod tests {
         assert_eq!(fixed.watched, vec![102, 114]);
         assert!(fixed.serve.is_empty());
         assert_eq!(fixed.keep_days, 3);
+        assert_eq!((r.keep_days, r.changes_keep_days, r.log_messages), (DEFAULT_KEEP_DAYS, DEFAULT_CHANGES_KEEP_DAYS, true));
+        let off = ItcRx::new(&json!({"log_messages": false, "changes_keep_days": 10}), &dir);
+        assert_eq!((off.changes_keep_days, off.log_messages), (10, false));
     }
 
     /// What a dongle at `center` would give: noise, one ITC frame on `channel`, noise.
@@ -726,20 +797,61 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    fn files(dir: &Path) -> Vec<String> {
+        let mut v: Vec<String> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().to_string())
+            .filter(|n| n.contains(".jsonl")).collect();
+        v.sort();
+        v
+    }
+
     #[test]
-    fn old_logs_are_pruned() {
+    fn old_logs_are_pruned_and_finished_days_gzipped() {
         let dir = std::env::temp_dir().join(format!("rs-itc-prune-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let mut r = ItcRx::new(&json!({"serve": "", "keep_days": 2}), &dir);
-        std::fs::create_dir_all(dir.join("itc")).unwrap();
-        for d in ["2026-10-20", "2026-10-21", "2026-10-22"] {
-            std::fs::write(dir.join("itc").join(format!("{d}.jsonl")), "{}\n").unwrap();
+        let itc = dir.join("itc");
+        std::fs::create_dir_all(&itc).unwrap();
+        for d in ["2026-10-20.jsonl.gz", "2026-10-21.jsonl", "2026-10-22.jsonl"] {
+            std::fs::write(itc.join(d), "{\"type\":\"TIME\"}\n").unwrap();
         }
-        // a message on the 23rd: today plus one earlier day are kept
-        r.write_log(1_792_713_600.0 + 3600.0, "{\"type\":\"TIME\"}");
-        let mut left: Vec<String> = std::fs::read_dir(dir.join("itc")).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().to_string()).collect();
-        left.sort();
-        assert_eq!(left, vec!["2026-10-22.jsonl", "2026-10-23.jsonl"]);
+        // the 23rd: today plus one earlier day are kept, and that day is gzipped
+        prune_days(&itc, "2026-10-23", 2);
+        assert_eq!(files(&itc), vec!["2026-10-22.jsonl"]);
+        gzip_days(&itc, "2026-10-23");
+        assert_eq!(files(&itc), vec!["2026-10-22.jsonl.gz"]);
+        let mut text = String::new();
+        use std::io::Read;
+        flate2::read::GzDecoder::new(std::fs::File::open(itc.join("2026-10-22.jsonl.gz")).unwrap()).read_to_string(&mut text).unwrap();
+        assert_eq!(text, "{\"type\":\"TIME\"}\n");
+        // the receiver tidies once a day, in the background
+        let mut r = ItcRx::new(&json!({"serve": "", "keep_days": 2}), &dir);
+        std::fs::write(itc.join("2026-10-23.jsonl"), "{}\n").unwrap();
+        r.handle(&[json!({"type": "TIME", "t": 1_792_713_600.0 + 86_400.0 + 60.0, "ch": 114})], 0.0, 220.3, 1.024e6);
+        let want = vec!["2026-10-23.jsonl.gz", "2026-10-24.jsonl"];
+        for _ in 0..200 {
+            if files(&itc) == want {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert_eq!(files(&itc), want);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn without_the_message_log_bases_and_changes_are_still_kept() {
+        let dir = std::env::temp_dir().join(format!("rs-itc-nolog-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut r = ItcRx::new(&json!({"serve": "", "log_messages": false}), &dir);
+        let t0 = 1_792_713_600.0;
+        let beacon = json!({"type": "BEACON", "radio": "123456", "t": t0, "ch": 102, "lat": 40.5, "lon": -90.25,
+                            "channel": 114, "channels": [114], "crc_ok": true, "level_db": 20.0, "floor_db": -40.0});
+        r.handle(&[beacon, wiu(t0 + 1.0, &[8, 15]), wiu(t0 + 9.0, &[3, 15])], t0, 220.3, 1.024e6);
+        assert!(!dir.join("itc").join("2026-10-23.jsonl").exists(), "no message log");
+        let kept = std::fs::read_to_string(dir.join("itc").join("changes").join("2026-10-23.jsonl")).unwrap();
+        assert!(kept.lines().next().unwrap().contains("\"type\":\"base\""), "{kept}");
+        let changes = read_changes(&dir, t0 - 1.0, 100);
+        assert_eq!(changes.len(), 2, "the page reads only the wayside changes");
+        assert!(changes.iter().all(|c| c["type"] == "wayside"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
