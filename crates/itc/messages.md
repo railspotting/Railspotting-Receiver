@@ -34,7 +34,8 @@ Decoded messages describe railroad operations. Keep them on machines you control
 
 **BEACON** (0x02), sent by a base station on its own channel and the national channel:
 `radio`, `flags`, `lat` and `lon` (degrees), `channel` (the base's local channel), `beacon_rate`,
-`util`, `channels` (nearby bases' channels).
+`util`, `channels` (the other channels the base's waysides and locomotives may use; the
+receiver decodes those inside its window too).
 
 **TIME** (0x06): `radio`, `utc` (an ISO 8601 time from the base's clock).
 
