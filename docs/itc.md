@@ -154,8 +154,10 @@ JSON fields are in [`crates/itc/messages.md`]({{ site.repo }}/blob/main/crates/i
   their states change.
 - **The console** on Linux (`sudo railspotting-console`) and the **Mac app** show the receiver,
   the same page and its settings.
-- **On the receiver:** every decoded message goes to `state/itc/YYYY-MM-DD.jsonl` (kept 7 days),
-  and each state change to `state/itc/changes/`. A local feed on `127.0.0.1:8221` serves the
+- **On the receiver:** every decoded message goes to `state/itc/YYYY-MM-DD.jsonl`, kept 2 days
+  with finished days gzipped (about 300 MB a day, nearly all repeats; `keep_days`, or
+  `log_messages: false` for none), and each state change and base station to
+  `state/itc/changes/`, kept 45 days (`changes_keep_days`; about 0.3 MB a day). A local feed on `127.0.0.1:8221` serves the
   messages live to a monitor program on the same machine.
 - **The Android app** has an ITC mode of its own for a dongle on a phone.
 

@@ -7,6 +7,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+flate2 = "1.1.10"
 log = "0.4.34"
 num-complex = "0.4.6"
 railspotting-common = { version = "2.0.0", path = "../common" }
