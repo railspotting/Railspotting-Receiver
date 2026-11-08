@@ -68,7 +68,7 @@ pub fn describe(kind: u8, p: &[u8]) -> Value {
     o.insert("hex".into(), json!(hex(p)));
     match kind {
         // flags, base radio, latitude and longitude in 1/600000 degree, local channel, rate,
-        // utilisation, a flag, then the channels of nearby bases
+        // utilisation, a flag, then the other channels its waysides and locomotives may use
         0x02 if p.len() >= 16 => {
             o.insert("radio".into(), json!(id24(&p[1..])));
             o.insert("flags".into(), json!(p[0]));

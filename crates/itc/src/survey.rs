@@ -3,7 +3,7 @@
 //! and writes the report.
 //!
 //! 1. Listens to the national channel for base station beacons (each names its local channel and
-//!    its neighbours').
+//!    the other channels its waysides and locomotives may use).
 //! 2. Records the whole ITC band for a while and measures clipping (the gain).
 //! 3. Decodes every channel of that recording: bursts, messages, types, quality, wayside units.
 //! 4. Prints what was found and the `itc decode` settings to use here.
@@ -20,7 +20,8 @@ use std::path::Path;
 /// The national common channel, where every base station sends its beacon.
 pub const NATIONAL_CH: i64 = 102;
 
-/// A base station's beacon, as heard: its local channel, its neighbours' channels and its level.
+/// A base station's beacon, as heard: its local channel, the other channels its waysides and
+/// locomotives may use, and its level.
 #[derive(Debug, Clone)]
 pub struct Beacon {
     pub local: i64,
@@ -147,7 +148,7 @@ fn report(chans: &BTreeMap<i64, Chan>, bases: &BTreeMap<String, Beacon>, clip: f
     if !neighbours.is_empty() {
         let list: Vec<String> = neighbours.iter().map(|n| n.to_string()).collect();
         advice.push(format!(
-            "neighbouring bases' channels {} were not decoded here: an outdoor antenna, or a receiver nearer them, would add them",
+            "channels {} that the bases heard here use were not decoded: an outdoor antenna, or a receiver nearer the track, would add them",
             list.join(", ")
         ));
     }
@@ -196,7 +197,7 @@ pub fn write_text<W: Write + ?Sized>(r: &Value, out: &mut W) -> io::Result<()> {
         let local = b["local"].as_i64().unwrap_or(0);
         writeln!(
             out,
-            "  {}  local channel {} ({:.4} MHz), {:.0} dB; neighbours {}",
+            "  {}  local channel {} ({:.4} MHz), {:.0} dB; its units also use {}",
             s(&b["radio"]),
             local,
             channel_hz(local) / 1e6,
@@ -280,7 +281,7 @@ mod tests {
         assert!(r["command"].as_str().unwrap().contains("--channels 220.1375M,220.4375M --gain 40"));
         let advice: Vec<String> = r["advice"].as_array().unwrap().iter().map(|a| a.as_str().unwrap().to_string()).collect();
         assert!(advice.iter().any(|a| a.contains("lower the gain, to about 34 dB")), "{advice:?}");
-        assert!(advice.iter().any(|a| a.contains("channels 127 were not decoded")), "{advice:?}");
+        assert!(advice.iter().any(|a| a.contains("channels 127 that the bases heard here use were not decoded")), "{advice:?}");
         let mut text = vec![];
         write_text(&r, &mut text).unwrap();
         let text = String::from_utf8(text).unwrap();

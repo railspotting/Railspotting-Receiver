@@ -1,9 +1,10 @@
 //! An ITC dongle (role `itc`): its samples go to the ITC decoder (railspotting-itc) instead of
 //! the voice and telemetry detectors.
 //!
-//! Channels: the national channel (102), where base stations send beacons, and the local channel
-//! of every base whose beacon is heard, when it is inside the dongle's window. A fixed list can be
-//! given instead (`channels` in the dongle's settings, ITC channel numbers).
+//! Channels: the national channel (102), where base stations send beacons, and for every base
+//! whose beacon is heard its local channel and the other channels its beacon lists (the channels
+//! its waysides and locomotives may use), each when it is inside the dongle's window. A fixed list
+//! can be given instead (`channels` in the dongle's settings, ITC channel numbers).
 //!
 //! Decoded messages go to a daily log (`state/itc/YYYY-MM-DD.jsonl`, kept `keep_days`) and to a
 //! local feed for a monitor (`serve`, 127.0.0.1:8221 by default; empty turns it off). They describe
@@ -139,6 +140,8 @@ pub struct ItcRx {
     by_channel: BTreeMap<i64, BTreeMap<String, u64>>,
     /// Stretches with no messages, (from, to), newest last.
     gaps: VecDeque<(f64, f64)>,
+    /// Base channels outside the window, logged once each.
+    outside: BTreeSet<i64>,
     recent_changes: VecDeque<Value>,
     changes_log: Option<(String, std::io::BufWriter<std::fs::File>)>,
 }
@@ -191,6 +194,7 @@ impl ItcRx {
             hourly: BTreeMap::new(),
             by_channel: BTreeMap::new(),
             gaps: VecDeque::new(),
+            outside: BTreeSet::new(),
             recent_changes: VecDeque::new(),
             changes_log: None,
         }
@@ -277,13 +281,17 @@ impl ItcRx {
                     log::info!("ITC: base station {radio} heard, local channel {}", b.local);
                 }
                 let level_db = b.level + m["floor_db"].as_f64().unwrap_or(0.0);
-                self.bases.insert(radio, Base { local_channel: b.local, level_db, util: m["util"].as_i64(), last: t });
-                if self.fixed.is_empty() && !self.watched.contains(&b.local) && !add.contains(&b.local) {
-                    let heard = channels_in(center_mhz * 1e6, rate).iter().any(|&f| channel_number(f) == b.local);
-                    if heard {
-                        add.push(b.local);
-                    } else {
-                        log::warn!("ITC: base channel {} is outside this dongle's window; set center_mhz to reach it", b.local);
+                self.bases.insert(radio.clone(), Base { local_channel: b.local, level_db, util: m["util"].as_i64(), last: t });
+                // its local channel and the channels its waysides and locomotives may use
+                let wanted = std::iter::once(b.local).chain(b.near.iter().copied());
+                for ch in wanted.filter(|c| (1..=999).contains(c)) {
+                    if !self.fixed.is_empty() || self.watched.contains(&ch) || add.contains(&ch) {
+                        continue;
+                    }
+                    if channels_in(center_mhz * 1e6, rate).iter().any(|&f| channel_number(f) == ch) {
+                        add.push(ch);
+                    } else if self.outside.insert(ch) {
+                        log::info!("ITC: channel {ch} of base {radio} is outside this dongle's window; set center_mhz to reach it");
                     }
                 }
             }
@@ -579,11 +587,11 @@ mod tests {
     }
 
     #[test]
-    fn a_beacon_is_logged_and_its_base_channel_watched() {
+    fn a_beacon_is_logged_and_its_base_channels_watched() {
         let dir = std::env::temp_dir().join(format!("rs-itc-beacon-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let mut r = ItcRx::new(&json!({"serve": ""}), &dir);
-        // a made-up base 123456 at 40.5, -90.25, local channel 114, neighbours 101 and 127
+        // a made-up base 123456 at 40.5, -90.25, local channel 114, its units also on 101 and 127
         let mut msg = vec![0x88, 0x12, 0x34, 0x56];
         msg.extend(((40.5f64 * 600000.0) as i32).to_be_bytes());
         msg.extend(((-90.25f64 * 600000.0) as i32).to_be_bytes());
@@ -598,10 +606,12 @@ mod tests {
         assert_eq!(r.messages, 1);
         assert_eq!(r.by_type.get("BEACON"), Some(&1));
         assert_eq!(r.bases.get("123456").map(|b| b.local_channel), Some(114));
-        assert_eq!(r.watched, vec![NATIONAL_CH, 114]);
+        // 101 is inside the window at 220.3 MHz, 1.024 MS/s; 127 just outside it
+        assert_eq!(r.watched, vec![101, NATIONAL_CH, 114]);
+        assert_eq!(r.outside, BTreeSet::from([127]));
         let logged = std::fs::read_to_string(dir.join("itc").join("2026-10-23.jsonl")).unwrap();
         assert!(logged.contains("\"type\":\"BEACON\""), "{logged}");
-        assert_eq!(r.status()["channels"], json!([102, 114]));
+        assert_eq!(r.status()["channels"], json!([101, 102, 114]));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

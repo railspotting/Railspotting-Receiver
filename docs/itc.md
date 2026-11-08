@@ -64,7 +64,7 @@ A burst can hold several frames, so the decoder looks for the unique word again 
 
 | Type | Name | From | What the receiver reads |
 |---|---|---|---|
-| 0x02 | `BEACON` | base | base radio ID, position, local channel, neighbouring bases' channels, how busy the channel is |
+| 0x02 | `BEACON` | base | base radio ID, position, local channel, the other channels its waysides and locomotives may use, how busy the channel is |
 | 0x05 | `CNTL` | base | base radio ID and a sequence number (slot control, not yet understood) |
 | 0x06 | `TIME` | base | the base's UTC clock |
 | 0x33 | `WIU` | wayside unit | the unit's ID and its device states |
