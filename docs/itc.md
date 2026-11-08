@@ -183,6 +183,9 @@ sudo -u railspotting bin/railspotting-receiver --config receiver.json itc place
    detector's milepost when markers are mapped). Each fit scores by how close its places land on
    signals; fits nearly as good are rivals, and only matches no rival contradicts are proposed.
 
+The running receiver also does this by itself, 15 minutes after a start and every 6 hours, while
+the headend takes `place` records, and sends each position only when it is new or has moved (a
+position on a line the headend knows goes on the map at once, so only confident ones are sent).
 It prints what it found and why. Each `--send` run keeps its answer in
 `state/itc/place_runs.json` and queues only positions the last few such runs (`confirm_runs`, 3)
 all gave, so an answer that still moves as trains come in waits. Run it once a day and positions
@@ -216,6 +219,18 @@ The defaults suit a typical North American main line. Where yours differs, set i
 | `flicker_s`, `train_gap_s`, `revisit_s`, `pass_window_s` | `10`, `720`, `600`, `1200` | timing: a proceed too short to count, drops that are another train, a train back at a place, drops that count for an announcement |
 | `radius_km` | `30` | how far around the base stations to fetch map data |
 | `confirm_runs` | `3` | runs in a row that must give the same position before `--send` sends it |
+| `receiver_position` | none | `[lat, lon]` of the receiver, set by its owner: the place trains drop as they pass closest is placed at the mapped signal nearest it (`closest_approach`) |
+| `share_receiver_position` | `false` | with no mapped signal within 1 km, send the receiver's own position instead |
+
+## Locomotives and trains passing
+
+Locomotives check in with their base station by radio, and each check-in names the locomotive's
+radio. The receiver keeps, for each locomotive radio, when it was heard and how strongly
+("sightings"), and joins each train passing into a pass: the signals it dropped in order, its
+locomotive radios (the loudest is the train nearest the receiver), its end-of-train unit and its
+detector call. Passes are kept on the receiver (`state/itc/passes/`) and, with sightings, go to the
+headend while ITC upload is on and the headend takes them (contract v1.21). Locomotive radio IDs
+are left out of the local feed and the status page.
 
 ## What is shared
 

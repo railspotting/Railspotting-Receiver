@@ -87,6 +87,11 @@ pub struct Params {
     /// A position is sent only once this many runs in a row have proposed it, so an answer that
     /// moves as trains come in waits until it settles.
     pub confirm_runs: usize,
+    /// Where the receiver is, set by its owner: the unit trains drop as they pass closest is
+    /// placed at the mapped signal nearest it (basis `closest_approach`, contract v1.21).
+    pub receiver_position: Option<(f64, f64)>,
+    /// With no mapped signal near, the receiver's own position may be sent instead.
+    pub share_receiver_position: bool,
 }
 
 impl Default for Params {
@@ -118,6 +123,8 @@ impl Default for Params {
             axis_max_spread: 0.05,
             radius_km: 30.0,
             confirm_runs: 3,
+            receiver_position: None,
+            share_receiver_position: false,
         }
     }
 }
@@ -127,7 +134,7 @@ pub const PARAM_KEYS: &[&str] = &[
     "proceed_codes", "stop_codes", "control_point_codes", "pair_twins", "flicker_s", "train_gap_s", "revisit_s",
     "pass_window_s", "detector_milepost", "railroad", "milepost_unit", "speed_mph", "speed_kmh", "cluster_m",
     "tolerance_m", "tolerance_share", "ambiguous_m", "fit_margin", "min_matches", "min_matches_without_mileposts", "milepost_slack",
-    "track", "snap_m", "axis_max_spread", "radius_km", "confirm_runs",
+    "track", "snap_m", "axis_max_spread", "radius_km", "confirm_runs", "receiver_position", "share_receiver_position",
 ];
 
 impl Params {
@@ -196,6 +203,12 @@ impl Params {
             "axis_max_spread" => self.axis_max_spread = num(0.0, 1.0)?,
             "radius_km" => self.radius_km = num(1.0, 200.0)?,
             "confirm_runs" => self.confirm_runs = num(1.0, 30.0)? as usize,
+            "receiver_position" => self.receiver_position = match v.as_array().map(|a| a.iter().filter_map(Value::as_f64).collect::<Vec<_>>()) {
+                _ if v.is_null() => None,
+                Some(a) if a.len() == 2 && a[0].abs() <= 90.0 && a[1].abs() <= 180.0 => Some((a[0], a[1])),
+                _ => return Err(bad("[latitude, longitude] or null")),
+            },
+            "share_receiver_position" => self.share_receiver_position = flag()?,
             _ => return Err(format!("itc_place has no setting {key:?}; there are: {}", PARAM_KEYS.join(", "))),
         }
         Ok(())
@@ -240,6 +253,10 @@ impl Params {
         diff!(axis_max_spread);
         diff!(radius_km);
         diff!(confirm_runs);
+        if self.receiver_position.is_some() {
+            m.insert("receiver_position".into(), json!("set"));
+        }
+        diff!(share_receiver_position);
         Value::Object(m)
     }
 
@@ -1011,10 +1028,69 @@ pub fn steady(runs: &[Run], n: usize) -> Vec<String> {
 
 /// The `place` record for a proposal. Its ID comes from the unit and position, so the same
 /// proposal sent again is a duplicate on the headend.
-pub fn record(ns: &Uuid, p: &Proposal, t: f64) -> Value {
+pub fn record(ns: &Uuid, p: &Proposal, t: f64, basis: &str) -> Value {
     let id = Uuid::new_v5(ns, format!("itc-place:{}:{:.5}:{:.5}", p.wiu, p.lat, p.lon).as_bytes());
-    json!({"id": id.to_string(), "type": "place", "wiu": p.wiu, "lat": p.lat, "lon": p.lon, "basis": "osm_signal",
+    json!({"id": id.to_string(), "type": "place", "wiu": p.wiu, "lat": p.lat, "lon": p.lon, "basis": basis,
            "t": (t * 1000.0).round() / 1000.0})
+}
+
+/// A unit's place: its 12-digit decimal ID less the track (the last 2 digits), so the tracks at
+/// one place go together; the ID itself when it doesn't read that way.
+pub fn place_key(wiu: &str) -> String {
+    match u64::from_str_radix(wiu, 16) {
+        Ok(n) if (700_000_000_000..800_000_000_000).contains(&n) => (n / 100).to_string(),
+        _ => wiu.to_string(),
+    }
+}
+
+/// From `pass` records: the places whose units dropped within `window_s` of the pass's closest
+/// approach (its locomotives loudest), with their units and how many passes, most first.
+pub fn closest_places(passes: &[Value], window_s: f64) -> Vec<(String, Vec<String>, usize)> {
+    let mut by: BTreeMap<String, (BTreeSet<String>, usize)> = BTreeMap::new();
+    for p in passes {
+        let Some(c) = p["closest"].as_f64() else { continue };
+        let mut here: BTreeSet<String> = BTreeSet::new();
+        for d in p["drops"].as_array().into_iter().flatten() {
+            if let (Some(w), Some(t)) = (d["wiu"].as_str(), d["t"].as_f64()) {
+                if (t - c).abs() <= window_s {
+                    here.insert(w.to_string());
+                }
+            }
+        }
+        let keys: BTreeSet<String> = here.iter().map(|w| place_key(w)).collect();
+        for k in keys {
+            let e = by.entry(k.clone()).or_default();
+            e.1 += 1;
+            e.0.extend(here.iter().filter(|w| place_key(w) == k).cloned());
+        }
+    }
+    let mut out: Vec<(String, Vec<String>, usize)> = by.into_iter().map(|(k, (u, n))| (k, u.into_iter().collect(), n)).collect();
+    out.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+    out
+}
+
+/// The `closest_approach` proposal: the one place most often dropped at closest approach, on at
+/// least `min_passes` passes and more often than any other, at the mapped signal nearest the
+/// receiver (within `near_m`), or at the receiver itself when its owner allows that.
+pub fn closest_approach(passes: &[Value], osm: &Osm, p: &Params, min_passes: usize, near_m: f64) -> Vec<Proposal> {
+    let Some((rlat, rlon)) = p.receiver_position else { return vec![] };
+    let places = closest_places(passes, 60.0);
+    let Some((_, units, n)) = places.first() else { return vec![] };
+    if *n < min_passes.max(1) || places.get(1).is_some_and(|q| q.2 == *n) {
+        return vec![];
+    }
+    let g = grid(rlat, rlon);
+    let near = signal_places(&osm.signals, p.cluster_m).into_iter()
+        .map(|q| (dist(g(q.1, q.2), (0.0, 0.0)), q)).filter(|(d, _)| *d <= near_m)
+        .min_by(|a, b| a.0.total_cmp(&b.0));
+    let (lat, lon, signals, name) = match near {
+        Some((_, q)) => (q.1, q.2, q.0.iter().map(|&s| osm.signals[s].id).collect(), q.0.iter().find_map(|&s| osm.signals[s].name.clone())),
+        None if p.share_receiver_position => (rlat, rlon, vec![], None),
+        None => return vec![],
+    };
+    units.iter().map(|w| Proposal {
+        wiu: w.clone(), lat: (lat * 1e5).round() / 1e5, lon: (lon * 1e5).round() / 1e5, signals: signals.clone(), name: name.clone(), location: 0,
+    }).collect()
 }
 
 /// The Overpass query for signals, milepost markers and (with `track`) the track itself within
@@ -1352,13 +1428,46 @@ mod tests {
     }
 
     #[test]
+    fn the_place_trains_drop_at_closest_approach_goes_at_the_nearest_signal() {
+        // made-up NS-style IDs: 7 550 61 1126 01 and 02 are two tracks at one place
+        let a = format!("{:x}", 755_061_112_601u64);
+        let b = format!("{:x}", 755_061_112_602u64);
+        let other = format!("{:x}", 755_061_114_201u64);
+        assert_eq!(place_key(&a), place_key(&b));
+        let pass = |c: f64, drops: &[(&str, f64)]| json!({"closest": c, "drops": drops.iter().map(|(w, t)| json!({"wiu": w, "t": t})).collect::<Vec<_>>()});
+        let passes = vec![
+            pass(1000.0, &[(&a, 1010.0), (&other, 700.0)]),
+            pass(5000.0, &[(&b, 4970.0)]),
+            pass(9000.0, &[(&a, 9040.0), (&other, 9055.0)]),
+            json!({"closest": null, "drops": [{"wiu": a, "t": 1.0}]}),
+        ];
+        let top = closest_places(&passes, 60.0);
+        assert_eq!(top[0].2, 3);
+        assert_eq!(top[0].1, vec![a.clone(), b.clone()]);
+        let osm = Osm { signals: vec![Signal { id: 7, lat: 40.001, lon: -90.0, name: Some("CP A".into()) }], ..Default::default() };
+        let mut p = Params::default();
+        assert!(closest_approach(&passes, &osm, &p, 3, 1000.0).is_empty(), "no receiver position: nothing");
+        p.set("receiver_position", &json!([40.0, -90.0])).unwrap();
+        let got = closest_approach(&passes, &osm, &p, 3, 1000.0);
+        assert_eq!(got.len(), 2);
+        assert_eq!((got[0].lat, got[0].lon, got[0].signals.clone()), (40.001, -90.0, vec![7]));
+        assert!(closest_approach(&passes, &osm, &p, 4, 1000.0).is_empty(), "too few passes");
+        // no mapped signal near: only when the owner shares the receiver's position
+        let far = Osm { signals: vec![Signal { id: 8, lat: 41.0, lon: -90.0, name: None }], ..Default::default() };
+        assert!(closest_approach(&passes, &far, &p, 3, 1000.0).is_empty());
+        p.set("share_receiver_position", &json!(true)).unwrap();
+        assert_eq!(closest_approach(&passes, &far, &p, 3, 1000.0)[0].lat, 40.0);
+    }
+
+    #[test]
     fn a_record_has_the_contract_fields_and_a_stable_id() {
         let pr = Proposal { wiu: "1234560101".into(), lat: 40.0, lon: -90.0, signals: vec![1], name: None, location: 0 };
-        let r = record(&NS, &pr, 1_000.25);
+        let r = record(&NS, &pr, 1_000.25, "osm_signal");
         assert_eq!(r["type"], "place");
         assert_eq!(r["basis"], "osm_signal");
         assert_eq!(r["wiu"], "1234560101");
-        assert_eq!(r["id"], record(&NS, &pr, 2_000.0)["id"]);
+        assert_eq!(r["id"], record(&NS, &pr, 2_000.0, "closest_approach")["id"]);
+        assert_eq!(r["id"], Uuid::new_v5(&NS, b"itc-place:1234560101:40.00000:-90.00000").to_string());
     }
 
     #[test]

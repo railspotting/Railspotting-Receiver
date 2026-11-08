@@ -154,6 +154,14 @@ on the map") go in `itc_place` in `receiver.json`, or for one run `--set key=val
 suit a typical North American main line. The map data fetched is kept a week in
 `state/itc/osm_signals.json`; `--osm file.json` uses an Overpass answer saved elsewhere.
 
+Locomotive radios heard and trains passing (their signal drops, locomotives, end-of-train unit
+and detector call) are kept on the receiver and, while ITC upload is on, sent as `loco` and
+`pass` records when the headend lists them in `/config` `itc.records` (contract v1.21,
+[docs/contract-v1.21.md](docs/contract-v1.21.md)). The running receiver also places units by
+itself every 6 hours and sends each confident position when it is new or has moved. Signal codes
+are named with the headend's `itc.code_tables` for the unit's railroad. Locomotive radio IDs stay
+off the local feed and the status page.
+
 `crates/itc/messages.md` describes the messages; `crates/itc/findings.md` how the protocol was
 worked out.
 

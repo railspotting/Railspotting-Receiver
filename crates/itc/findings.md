@@ -143,7 +143,92 @@ fields not yet seen to change.
 The 2 bytes after the label change in every message; their low byte rises roughly with time,
 but they are not a plain clock.
 
+## 6. The beacon's channel list
+
+A beacon names its base's local channel and up to 6 more. These were read as neighbouring bases'
+channels; they are the other channels that base's own waysides and locomotives use.
+
+| Check, one receiver, one base | Before | After decoding the listed channels in the window |
+|---|---|---|
+| Channels decoded | national and local | national, local and the 2 listed ones in the window |
+| Wayside units heard | 31 | 32: one unit transmits only on a listed channel |
+| Messages on that channel, 7 minutes | not decoded | about 100, all from that one unit |
+
+Rationale: a neighbouring base's channel would carry that base's beacons and other bases' units;
+the listed channel carried only a unit of the base heard, and no beacon. The receiver now decodes
+every listed channel inside its window (`itc_rx`).
+
+## 7. Type 0x07: the base's list of wayside radios
+
+| Bytes | Meaning (observed) |
+|---|---|
+| 0 to 2 | the base's radio ID |
+| 3 | a counter |
+| 4, 5 | not known |
+| 6 | always 0x72 |
+| 7 | N, the number of entries |
+| 8 | not known |
+| then N entries of 5 bytes | a class byte (0x1a, 0x1b or 0x1c), a radio ID (3 bytes), a status byte |
+
+Over three days, in all 109,499 of these messages, message plus trailer is exactly 9 + 5N - 1
+bytes: the count is right, and the last entry's status byte falls outside what the decoder keeps
+(so for this type the "trailer" is the end of the list, not a separate field). The radios listed
+send check-ins (type 0x01) every few minutes all day. Rationale: a list of radios that never
+moves and is always heard is the base's fixed waysides; the receiver uses it to tell them from
+locomotives (`locos`).
+
+## 8. Message roles: who sends what
+
+Two days, one base, channel of the base:
+
+| Type | Messages | From, to | Layout seen |
+|---|---|---|---|
+| 0x07 | 67,937 | base to all | section 7 |
+| 0x01 | 11,358 | radio to base | sender (3 bytes), base (3), 2 bytes, 0x2d; 9 bytes |
+| 0x70 | 1,576 | base to one radio | base (3), destination (3), ... |
+| 0x03 | 10 | radio to base | sender (3), base (3), 3 bytes |
+| 0x04 | 15 | base | like CNTL |
+
+Radios that check in (0x01, 0x03) or receive 0x70 and are neither a base nor in a 0x07 list are
+heard in short sessions (median 8 minutes): 94 in two days, 116 in three, 36 of them on more than
+one day. Rationale for taking them as locomotives: they come and go with trains (next section),
+and the same ones return on later days, as a locomotive on a return trip would.
+
+## 9. Closest approach
+
+| Test, two days | At a defect detector call | At random times |
+|---|---|---|
+| A locomotive radio transmitting within 10 minutes | 35 of 35 calls | 144 of 400 times |
+| Loudest such transmission, median | 28.5 dB | 26.5 dB |
+| That radio loudest within 3 minutes of the call | 24 of 35 | |
+
+One train watched live: its 4 locomotive radios were loudest within the same 36 seconds, and in
+that window the wayside the receiver hears most strongly dropped to stop. Rationale: a train's
+radios are loudest when it is nearest the receiver, so the signals it drops then are the ones
+nearest the receiver. This anchors placement from every train with these radios, not only those
+a detector announces (`passes`, `place::closest_approach`).
+
+## 10. Wayside IDs as decimal numbers
+
+The 10 hex digits of a wayside ID read as a 12-digit decimal number. Of the 32 units heard 50
+times or more on one receiver:
+
+| Digits | Seen |
+|---|---|
+| 1 | 7 in all 32 |
+| 2 to 4 | the same 3 digits in all 32 (one railroad) |
+| 5 and 6 | the same 2 digits in all 32 |
+| 7 to 10 | 26 different values: the places |
+| 11 and 12 | 01 in 26 units, 02 in 6: the track at a place |
+
+6 places have two units, 01 and 02, and every pair of hex IDs one apart is such a pair. The
+other 35 IDs heard were heard mostly once each: corrupted copies, not units. Rationale: the
+place digits group the tracks at one place correctly (`place::place_key`); they follow the order
+along the line only in short runs (rank correlation with train timing 0.08), so they are a
+grouping, not an order.
+
 ## Next
 
 - The last 1%: soft-decision Viterbi for the header, timing tracking within long frames.
-- Work out what the WIU indicator bits mean, CNTL slot data and type 0x07.
+- Work out what the WIU indicator bits mean (which are signals, switches and other bits), CNTL
+  slot data, the bytes of 0x01 and 0x70.

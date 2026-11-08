@@ -48,6 +48,9 @@ pub const TT_WAIT_S: f64 = 25.0;
 pub const TT_TRIGGER: &str = "run_transcription_test";
 /// ITC record IDs are UUID v5 under the receiver's event namespace (contract v1.18).
 pub const ITC_NAMESPACE: uuid::Uuid = crate::cli::REPLAY_NAMESPACE;
+/// Wayside placement runs this long after a start, then this often.
+const ITC_PLACE_FIRST_S: f64 = 900.0;
+const ITC_PLACE_EVERY_S: f64 = 6.0 * 3600.0;
 /// ITC upload settings when `/config` `itc` leaves them out (contract v1.18).
 pub const ITC_MAX_BATCH: i64 = 200;
 pub const ITC_FLUSH_S: f64 = 10.0;
@@ -420,6 +423,7 @@ impl Agent {
                 }
             }));
             itc_upload.on.store(itc_on, std::sync::atomic::Ordering::SeqCst);
+            itc_upload.set_takes(config.get("itc").unwrap_or(&Value::Null));
             let emit_me = me.clone();
             let emit: railspotting_dsp::sdr::Emit = Arc::new(move |ev: Map<String, Value>| {
                 if let Some(a) = emit_me.upgrade() {
@@ -668,6 +672,7 @@ impl Agent {
             Err(_) => log::error!("event history write failed"),
         }
         let ts = clean.get("end_ts").filter(|v| truthy(v)).or_else(|| clean.get("start_ts")).cloned().unwrap_or(Value::Null);
+        self.note_for_itc(&clean, ts.as_f64().unwrap_or_else(|| (self.clock)()));
         *lock(&self.last_event_ts) = ts;
         let role = self.scanner_role();
         let covers = self.sdr_covers("eot");
@@ -677,6 +682,29 @@ impl Agent {
         }));
         if r.is_err() {
             log::error!("auto EOT watch failed");
+        }
+    }
+
+    /// An EOT unit or a detector event, for the train an ITC dongle sees passing (contract
+    /// v1.21 `pass` records).
+    fn note_for_itc(&self, ev: &Map<String, Value>, t: f64) {
+        let unit = ev.get("telemetry").and_then(|x| x.get("unit_id")).and_then(Value::as_i64);
+        let detector = ev.get("detector").filter(|d| d.get("repeat_of").is_none_or(Value::is_null))
+            .and(ev.get("event_id")).and_then(Value::as_str);
+        if unit.is_none() && detector.is_none() {
+            return;
+        }
+        for s in self.sdrs() {
+            s.with(|x| {
+                if let Some(i) = x.itc.as_mut() {
+                    if let Some(u) = unit {
+                        i.note_eot(u, t);
+                    }
+                    if let Some(id) = detector {
+                        i.note_detector(id, t);
+                    }
+                }
+            });
         }
     }
 
@@ -1135,6 +1163,8 @@ impl Agent {
     /// `/config` `itc.upload` turns ITC upload on and off. Off, the records queued are dropped:
     /// ITC stays on the receiver.
     fn apply_itc(&self, cfg: &Value) {
+        // the record types the headend takes and the locomotive gap (contract v1.21)
+        self.itc_upload.set_takes(cfg.get("itc").unwrap_or(&Value::Null));
         let on = itc_upload_on(cfg);
         let was = self.itc_upload.on.swap(on, std::sync::atomic::Ordering::SeqCst);
         if on && !was {
@@ -1237,6 +1267,63 @@ impl Agent {
                 }
             }
         }
+    }
+
+    /// Place the wayside units heard, now and then (contract v1.21: a place record on a known line
+    /// puts the unit on the map at once). Only positions confident enough are sent, and each
+    /// only when it is new or has moved; `state/itc/place_sent.json` remembers what was sent.
+    pub fn itc_place_loop(&self) {
+        if self.stop_event.wait(ITC_PLACE_FIRST_S) {
+            return;
+        }
+        loop {
+            let doing_itc = self.sdrs().iter().any(|s| s.with(|x| x.role == "itc"));
+            if doing_itc && self.itc_upload.takes("place") {
+                self.itc_place_once();
+            }
+            if self.stop_event.wait(ITC_PLACE_EVERY_S) {
+                return;
+            }
+        }
+    }
+
+    fn itc_place_once(&self) {
+        let p = match railspotting_itc::place::Params::from_json(self.settings.get("itc_place")) {
+            Ok(p) => p,
+            Err(e) => {
+                log::warn!("ITC placement: {e}; not run");
+                return;
+            }
+        };
+        let mut said = vec![];
+        let min = crate::itc::place_min_passes(&self.config());
+        let sure = match crate::itc::place_run(&self.state_dir, &p, 7.0, None, min, true, &mut said) {
+            Ok(s) => s,
+            Err(e) => {
+                log::info!("ITC placement: {e}");
+                return;
+            }
+        };
+        let path = self.state_dir.join("itc").join("place_sent.json");
+        let mut sent: std::collections::BTreeMap<String, Value> = std::fs::read_to_string(&path).ok()
+            .and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+        let now = (self.clock)();
+        let mut n = 0;
+        for (pr, basis) in &sure {
+            let here = json!([pr.lat, pr.lon, basis]);
+            if sent.get(&pr.wiu) == Some(&here) {
+                continue;
+            }
+            self.queue_itc(&railspotting_itc::place::record(&ITC_NAMESPACE, pr, now, basis));
+            sent.insert(pr.wiu.clone(), here);
+            n += 1;
+        }
+        if n > 0 {
+            if let Err(e) = std::fs::write(&path, serde_json::to_string(&sent).unwrap_or_default()) {
+                log::warn!("ITC placement: {}: {e}", path.display());
+            }
+        }
+        log::info!("ITC placement: {} positions ready, {n} new or moved sent", sure.len());
     }
 
     /// The heartbeat's `itc` summary while a dongle is doing ITC (contract v1.18, section 5).
@@ -2198,6 +2285,7 @@ impl Agent {
         self.spawn("registration_loop", |a| a.registration_loop(false));
         self.spawn("uploader_loop", Agent::uploader_loop);
         self.spawn("itc_upload_loop", Agent::itc_upload_loop);
+        self.spawn("itc_place_loop", Agent::itc_place_loop);
         self.spawn("heartbeat_loop", Agent::heartbeat_loop);
         self.spawn("command_loop", Agent::command_loop);
         self.spawn("scheduler_loop", Agent::scheduler_loop);

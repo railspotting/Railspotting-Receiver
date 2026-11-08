@@ -30,6 +30,8 @@ use railspotting_itc::decode::{decode_burst, Decoder};
 use railspotting_itc::dsp::{channel_hz, channel_number, channels_in};
 use railspotting_itc::feed::Feed;
 use railspotting_itc::changes::Tracker;
+use railspotting_itc::locos::Locos;
+use railspotting_itc::passes::Passes;
 use railspotting_itc::survey::{beacon_of, NATIONAL_CH};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -91,12 +93,39 @@ pub struct ItcUpload {
     pub on: AtomicBool,
     ns: uuid::Uuid,
     add: Box<dyn Fn(Value) + Send + Sync>,
+    /// The record types the headend takes (`itc.records`, contract v1.21) and how long a
+    /// locomotive radio must be quiet before its sighting is sent (`itc.loco_gap_s`).
+    takes: std::sync::RwLock<(Vec<String>, f64)>,
 }
+
+/// The record types a headend takes when `/config` doesn't say (contract v1.18).
+pub const V118_RECORDS: [&str; 3] = ["wayside", "base", "place"];
+pub const DEFAULT_LOCO_GAP_S: f64 = 1800.0;
 
 impl ItcUpload {
     /// Record IDs are UUID v5 under `ns`; `add` takes each record.
     pub fn new(ns: uuid::Uuid, add: Box<dyn Fn(Value) + Send + Sync>) -> Arc<ItcUpload> {
-        Arc::new(ItcUpload { on: AtomicBool::new(false), ns, add })
+        let takes = (V118_RECORDS.iter().map(|s| s.to_string()).collect(), DEFAULT_LOCO_GAP_S);
+        Arc::new(ItcUpload { on: AtomicBool::new(false), ns, add, takes: std::sync::RwLock::new(takes) })
+    }
+
+    /// From `/config` `itc`: `records` (absent: the v1.18 types) and `loco_gap_s`.
+    pub fn set_takes(&self, itc: &Value) {
+        let records: Vec<String> = match itc.get("records").and_then(Value::as_array) {
+            Some(a) => a.iter().filter_map(Value::as_str).map(String::from).collect(),
+            None => V118_RECORDS.iter().map(|s| s.to_string()).collect(),
+        };
+        let gap = itc.get("loco_gap_s").and_then(Value::as_f64).filter(|g| *g > 0.0).unwrap_or(DEFAULT_LOCO_GAP_S);
+        *self.takes.write().unwrap_or_else(|p| p.into_inner()) = (records, gap);
+    }
+
+    /// Whether the headend takes `kind` records, and upload is on.
+    pub fn takes(&self, kind: &str) -> bool {
+        self.is_on() && self.takes.read().unwrap_or_else(|p| p.into_inner()).0.iter().any(|k| k == kind)
+    }
+
+    pub fn loco_gap_s(&self) -> f64 {
+        self.takes.read().unwrap_or_else(|p| p.into_inner()).1
     }
 
     pub fn is_on(&self) -> bool {
@@ -154,6 +183,10 @@ pub struct ItcRx {
     gaps: VecDeque<(f64, f64)>,
     /// Base channels outside the window, logged once each.
     outside: BTreeSet<i64>,
+    /// Locomotive radios heard and trains passing (contract v1.21), kept whether or not upload
+    /// is on: the heartbeat counts locomotives either way.
+    locos: Locos,
+    passes: Passes,
     recent_changes: VecDeque<Value>,
     changes_log: Option<(String, std::io::BufWriter<std::fs::File>)>,
 }
@@ -213,6 +246,8 @@ impl ItcRx {
             by_channel: BTreeMap::new(),
             gaps: VecDeque::new(),
             outside: BTreeSet::new(),
+            locos: Locos::new(uuid::Uuid::nil(), DEFAULT_LOCO_GAP_S),
+            passes: Passes::new(uuid::Uuid::nil()),
             recent_changes: VecDeque::new(),
             changes_log: None,
         }
@@ -280,6 +315,11 @@ impl ItcRx {
             None => self.tracker = None,
             _ => {}
         }
+        if let Some(u) = &upload {
+            self.locos.set_ns(u.ns);
+            self.passes.set_ns(u.ns);
+            self.locos.set_gap(u.loco_gap_s());
+        }
         let mut add = vec![];
         for m in msgs {
             self.messages += 1;
@@ -318,8 +358,30 @@ impl ItcRx {
             if self.log_messages {
                 self.write_log(t, &line);
             }
+            if let Some((radio, t, level)) = self.locos.add(m) {
+                self.passes.loco(&radio, t, level);
+            }
+            // locomotive radio IDs stay off the feed (contract v1.21): these name locomotives
             if let Some(f) = &self.feed {
-                f.send(&line);
+                if !matches!(m["type"].as_str(), Some("QSTAT" | "ACK" | "ACQ" | "UNICAST")) {
+                    f.send(&line);
+                }
+            }
+        }
+        // sightings and passes that have ended, for the headend when it takes them
+        let now = self.last_t;
+        let locos = self.locos.due(now);
+        let pass = self.passes.due(now);
+        if let Some(r) = &pass {
+            // kept here too, upload or not: placement counts what trains drop at closest approach
+            self.write_pass(now, r);
+        }
+        if let Some(u) = &upload {
+            for r in locos.into_iter().filter(|_| u.takes("loco")) {
+                (u.add)(r);
+            }
+            if let Some(r) = pass.filter(|_| u.takes("pass")) {
+                (u.add)(r);
             }
         }
         if !add.is_empty() {
@@ -359,7 +421,33 @@ impl ItcRx {
             "units_heard": units.len(),
             "messages": messages,
             "crc_fail": self.crc_fails.iter().filter(|t| **t >= since).count(),
+            "channels_outside": self.outside,
+            "locos_heard": self.locos.heard(now, SUMMARY_S),
         })
+    }
+
+    /// Append a pass to `state/itc/passes/YYYY-MM-DD.jsonl`, kept as long as the changes.
+    fn write_pass(&mut self, t: f64, pass: &Value) {
+        let day = utc_date(t);
+        let dir = self.dir.join("passes");
+        let done = std::fs::create_dir_all(&dir).and_then(|_| {
+            prune_days(&dir, &day, self.changes_keep_days);
+            let mut f = std::fs::OpenOptions::new().create(true).append(true).open(dir.join(format!("{day}.jsonl")))?;
+            writeln!(f, "{pass}")
+        });
+        if let Err(e) = done {
+            log::warn!("ITC: {}: {e}", dir.display());
+        }
+    }
+
+    /// An end-of-train unit heard by this receiver, for the train passing (contract v1.21).
+    pub fn note_eot(&mut self, unit: i64, t: f64) {
+        self.passes.eot(unit, t);
+    }
+
+    /// A detector event this receiver sent (its `event_id`), for the train passing.
+    pub fn note_detector(&mut self, event_id: &str, t: f64) {
+        self.passes.detector(event_id, t);
     }
 
     fn write_log(&mut self, t: f64, line: &str) {
@@ -417,6 +505,9 @@ impl ItcRx {
             return;
         }
         let wiu = r["wiu"].as_str().unwrap_or("").to_string();
+        if is_drop(&r) {
+            self.passes.drop(&wiu, r["t"].as_f64().unwrap_or(t));
+        }
         let u = self.units.entry(wiu).or_default();
         u.codes = r["codes"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
         u.previous = r["previous_codes"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect());
@@ -530,6 +621,16 @@ impl ItcRx {
 }
 
 /// Delete daily files (`YYYY-MM-DD.jsonl`) in `dir` so that `keep` days remain with today.
+/// Codes that let a train on and codes for stop (by observation; `docs/itc.md`).
+const PROCEED: [i64; 5] = [2, 3, 5, 6, 8];
+const STOP: [i64; 2] = [13, 15];
+
+/// A wayside change where some field went from proceed to stop: a train reached that signal.
+fn is_drop(r: &Value) -> bool {
+    let (Some(now), Some(was)) = (r["codes"].as_array(), r["previous_codes"].as_array()) else { return false };
+    now.iter().zip(was).any(|(n, w)| w.as_i64().is_some_and(|w| PROCEED.contains(&w)) && n.as_i64().is_some_and(|n| STOP.contains(&n)))
+}
+
 /// A daily file's date ("2026-10-23" from "2026-10-23.jsonl" or "2026-10-23.jsonl.gz").
 fn file_day(p: &Path) -> Option<String> {
     let name = p.file_name()?.to_string_lossy().to_string();
@@ -578,6 +679,19 @@ fn gzip_days(dir: &Path, today: &str) {
             log::warn!("ITC: gzipping {}: {e}", p.display());
         }
     }
+}
+
+/// Train passes kept under `state_dir` since `t0` (`pass` records, contract v1.21).
+pub fn read_passes(state_dir: &Path, t0: f64) -> Vec<Value> {
+    let dir = state_dir.join("itc").join("passes");
+    let Ok(rd) = std::fs::read_dir(&dir) else { return vec![] };
+    let first = utc_date(t0);
+    let mut files: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| file_day(p).is_some_and(|d| d >= first) && p.extension().is_some_and(|x| x == "jsonl")).collect();
+    files.sort();
+    files.iter().filter_map(|f| std::fs::read_to_string(f).ok()).flat_map(|t| {
+        t.lines().filter_map(|l| serde_json::from_str::<Value>(l).ok()).collect::<Vec<_>>()
+    }).filter(|v| v["t"].as_f64().is_some_and(|t| t >= t0)).collect()
 }
 
 /// Wayside state changes from `t0` on, from the daily files under `state_dir`, oldest first;
@@ -781,6 +895,79 @@ mod tests {
         assert_eq!(recs.len(), 3);
         assert_eq!(recs[2]["first"], true);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A locomotive check-in (radio a1b2c3 to base 123456) and a wayside going Clear to Stop.
+    fn train(t0: f64) -> Vec<Vec<Value>> {
+        let q = |t: f64, lv: f64| json!({"type": "QSTAT", "t": t, "ch": 114, "radio": "a1b2c3", "hex": "a1b2c312345600002d",
+                                        "crc_ok": true, "level_db": lv, "floor_db": -60.0});
+        let beacon = json!({"type": "BEACON", "radio": "123456", "t": t0, "ch": 102, "lat": 40.5, "lon": -90.25,
+                            "channel": 114, "channels": [101], "crc_ok": true, "level_db": 20.0, "floor_db": -40.0});
+        // the wayside repeats its state every few seconds, as real ones do
+        vec![vec![beacon, wiu(t0, &[3])], vec![q(t0 + 30.0, 10.0), wiu(t0 + 40.0, &[3]), q(t0 + 75.0, 30.0)], vec![wiu(t0 + 80.0, &[15])],
+             vec![q(t0 + 120.0, 12.0)]]
+    }
+
+    #[test]
+    fn locomotives_and_passes_go_only_when_the_headend_takes_them() {
+        let dir = std::env::temp_dir().join(format!("rs-itc-v121-{}", std::process::id()));
+        for takes in [None, Some(json!(["wayside", "base", "place", "loco", "pass"]))] {
+            let _ = std::fs::remove_dir_all(&dir);
+            let mut r = ItcRx::new(&json!({"serve": ""}), &dir);
+            let got = Arc::new(std::sync::Mutex::new(vec![]));
+            let sink = got.clone();
+            let ns = uuid::uuid!("6f1c4e1e-6a0b-4a52-9d55-4d3c1f0a7b15");
+            let up = ItcUpload::new(ns, Box::new(move |v| sink.lock().unwrap().push(v)));
+            up.on.store(true, Ordering::SeqCst);
+            match &takes {
+                Some(list) => up.set_takes(&json!({"records": list, "loco_gap_s": 600})),
+                None => up.set_takes(&json!({})),
+            }
+            r.upload = Some(up.clone());
+            let t0 = 1_792_713_600.0;
+            for batch in train(t0) {
+                r.handle(&batch, t0, 220.3, 1.024e6);
+            }
+            assert_eq!(r.summary(t0 + 121.0)["locos_heard"], 1);
+            // quiet long after: the sighting and the pass end
+            r.handle(&[json!({"type": "TIME", "t": t0 + 5000.0, "ch": 114, "crc_ok": true})], t0, 220.3, 1.024e6);
+            let recs = got.lock().unwrap().clone();
+            let kinds: Vec<&str> = recs.iter().map(|x| x["type"].as_str().unwrap()).collect();
+            if takes.is_none() {
+                assert!(!kinds.contains(&"loco") && !kinds.contains(&"pass"), "v1.18 headend: {kinds:?}");
+                continue;
+            }
+            let loco = recs.iter().find(|x| x["type"] == "loco").expect("a loco record");
+            assert_eq!(loco["radio"], "a1b2c3");
+            assert_eq!(loco["base"], "123456");
+            assert_eq!(loco["id"], uuid::Uuid::new_v5(&ns, format!("itc-loco:a1b2c3:{}", (t0 + 30.0) as i64 * 1000).as_bytes()).to_string());
+            let (first, last, peak, t) = (loco["first"].as_f64().unwrap(), loco["last"].as_f64().unwrap(),
+                                          loco["peak_t"].as_f64().unwrap(), loco["t"].as_f64().unwrap());
+            assert!(first <= peak && peak <= last && last <= t, "{loco}");
+            assert_eq!(loco["peak_level_db"], -30.0);
+            let pass = recs.iter().find(|x| x["type"] == "pass").unwrap_or_else(|| panic!("no pass: {recs:?}"));
+            assert_eq!(pass["closest"], t0 + 75.0);
+            assert_eq!(pass["drops"][0]["wiu"], "1234560ff0");
+            assert_eq!(pass["locos"][0]["radio"], "a1b2c3");
+            assert!(pass["closest"].as_f64().unwrap() <= pass["t"].as_f64().unwrap());
+            let kept = read_passes(&dir, t0 - 1.0);
+            assert_eq!(kept.len(), 1, "kept here as well");
+            assert_eq!(kept[0]["closest"], pass["closest"]);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn upload_takes_follow_the_config() {
+        let up = ItcUpload::new(uuid::Uuid::nil(), Box::new(|_| {}));
+        up.set_takes(&json!({}));
+        assert!(!up.takes("wayside"), "upload off: nothing");
+        up.on.store(true, Ordering::SeqCst);
+        assert!(up.takes("wayside") && up.takes("place") && !up.takes("loco"));
+        assert_eq!(up.loco_gap_s(), DEFAULT_LOCO_GAP_S);
+        up.set_takes(&json!({"records": ["wayside", "loco"], "loco_gap_s": 900}));
+        assert!(up.takes("loco") && !up.takes("pass") && !up.takes("base"));
+        assert_eq!(up.loco_gap_s(), 900.0);
     }
 
     #[test]

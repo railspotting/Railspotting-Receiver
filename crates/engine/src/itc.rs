@@ -525,10 +525,23 @@ fn place_params(settings: &railspotting_common::Settings, set: &[String]) -> Res
     Ok(p)
 }
 
-fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&PathBuf>, set: &[String], send: bool,
-             out: &mut dyn Write) -> Result<(), String> {
-    let p = place_params(settings, set)?;
-    let state = settings.state_dir();
+/// A unit's mapped position gets near a receiver's when it is within this of it.
+pub const NEAR_RECEIVER_M: f64 = 1000.0;
+/// `/config` `itc.place_min_passes` when the headend doesn't say (contract v1.21).
+pub const DEFAULT_PLACE_MIN_PASSES: usize = 3;
+
+/// `/config` `itc.place_min_passes`.
+pub fn place_min_passes(cfg: &Value) -> usize {
+    cfg.get("itc").and_then(|i| i.get("place_min_passes")).and_then(Value::as_u64).map(|n| n as usize)
+        .unwrap_or(DEFAULT_PLACE_MIN_PASSES)
+}
+
+/// One placement run over the receiver's logs, described on `out`: the positions confident enough
+/// to send, each with its basis. `osm_signal` positions count only once the last
+/// `confirm_runs` counted runs agreed (`count` makes this run one of them); `closest_approach`
+/// ones need `min_passes` passes.
+pub fn place_run(state: &std::path::Path, p: &place::Params, days: f64, osm: Option<&PathBuf>, min_passes: usize, count: bool,
+                 out: &mut dyn Write) -> Result<Vec<(place::Proposal, &'static str)>, String> {
     let itc_dir = state.join("itc");
     let now = railspotting_common::now();
     let since = now - days * 86400.0;
@@ -541,8 +554,8 @@ fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&P
         return Err(format!("no wayside state changes in {} (does a dongle have the itc role?)", itc_dir.join("changes").display()));
     }
     let passes = read_passes(&state.join("history.db"), since)?;
-    let (mut lay, drops) = place::layout(&changes, &gaps, &p);
-    place::anchor(&mut lay, &drops, &passes, &p);
+    let (mut lay, drops) = place::layout(&changes, &gaps, p);
+    place::anchor(&mut lay, &drops, &passes, p);
     let units = lay.locations.iter().map(|l| l.units.len()).sum::<usize>() + lay.unplaced.len();
     let det_name = |mp: f64, rr: &Option<String>| format!("{} milepost {mp}", rr.as_deref().unwrap_or("detector at"));
     let det = match &lay.detector {
@@ -607,57 +620,88 @@ fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&P
     let osm = place::read_osm(&osm_json, &p.milepost_unit);
     let _ = writeln!(out, "OpenStreetMap: {} signals, {} milepost markers, {} stretches of track", osm.signals.len(), osm.stones.len(),
                      osm.ways.len());
-    let pl = place::place(&lay, &osm, &p);
+    let pl = place::place(&lay, &osm, p);
     if !pl.note.is_empty() {
         let _ = writeln!(out, "{}", pl.note);
     }
-    // each --send run is kept (the last 30), so sending waits until the answer has settled; a
-    // look without --send is shown against them but not counted
+    // each counted run is kept (the last 30), so sending waits until the answer has settled; a
+    // look without counting is shown against them
     let runs_path = itc_dir.join("place_runs.json");
     let mut runs: Vec<place::Run> = std::fs::read_to_string(&runs_path).ok()
         .and_then(|t| serde_json::from_str::<Vec<place::Run>>(&t).ok()).unwrap_or_default();
     runs.push(pl.proposals.iter().map(|pr| (pr.wiu.clone(), (pr.lat, pr.lon))).collect());
     let keep = runs.len().saturating_sub(30);
     runs.drain(..keep);
-    if send {
+    if count {
         if let Err(e) = std::fs::write(&runs_path, serde_json::to_string(&runs).unwrap_or_default()) {
             let _ = writeln!(out, "{}: {e}", runs_path.display());
         }
     }
-    if pl.proposals.is_empty() {
-        let _ = writeln!(out, "nothing to propose");
-        return Ok(());
-    }
-    let ties = if pl.ties > 1 { format!(" ({} fits as good)", pl.ties) } else { String::new() };
-    let how = if pl.along_track { "along the mapped track" } else { "along a straight line" };
-    let held = if pl.mileposts { "the detector held to its milepost by mapped markers" } else { "no milepost markers fit" };
-    let _ = writeln!(out, "best fit: {} places on mapped signals at about {:.0} mph, {how}, {held}{ties}", pl.matched, pl.speed * 2.23694);
     let settled = place::steady(&runs, p.confirm_runs);
-    for pr in &pl.proposals {
-        let name = pr.name.as_ref().map(|n| format!("  \"{n}\"")).unwrap_or_default();
-        let mark = if settled.contains(&pr.wiu) { "settled" } else { "new or moved" };
-        let _ = writeln!(out, "  #{:<3} {}  {:.5}, {:.5}  {mark:<12} OSM {}{name}", pr.location + 1, pr.wiu, pr.lat, pr.lon,
-                         pr.signals.iter().map(i64::to_string).collect::<Vec<_>>().join(","));
+    let mut sure: Vec<(place::Proposal, &'static str)> = vec![];
+    if pl.proposals.is_empty() {
+        let _ = writeln!(out, "from mapped signals: nothing to propose");
+    } else {
+        let ties = if pl.ties > 1 { format!(" ({} fits as good)", pl.ties) } else { String::new() };
+        let how = if pl.along_track { "along the mapped track" } else { "along a straight line" };
+        let held = if pl.mileposts { "the detector held to its milepost by mapped markers" } else { "no milepost markers fit" };
+        let _ = writeln!(out, "best fit: {} places on mapped signals at about {:.0} mph, {how}, {held}{ties}", pl.matched, pl.speed * 2.23694);
+        for pr in &pl.proposals {
+            let name = pr.name.as_ref().map(|n| format!("  \"{n}\"")).unwrap_or_default();
+            let mark = if settled.contains(&pr.wiu) { "settled" } else { "new or moved" };
+            let _ = writeln!(out, "  #{:<3} {}  {:.5}, {:.5}  {mark:<12} OSM {}{name}", pr.location + 1, pr.wiu, pr.lat, pr.lon,
+                             pr.signals.iter().map(i64::to_string).collect::<Vec<_>>().join(","));
+        }
+        let _ = writeln!(out, "{} proposals, {} settled (the same in the last {} runs)", pl.proposals.len(), settled.len(), p.confirm_runs);
+        sure.extend(pl.proposals.iter().filter(|pr| settled.contains(&pr.wiu)).map(|pr| (pr.clone(), "osm_signal")));
     }
-    let _ = writeln!(out, "{} proposals, {} settled (the same in the last {} runs)", pl.proposals.len(), settled.len(), p.confirm_runs);
-    if !send {
-        let _ = writeln!(out, "add --send to queue the settled ones for the headend");
-        return Ok(());
+    // the place trains drop as they pass closest to this receiver (contract v1.21)
+    let kept = railspotting_dsp::itc_rx::read_passes(state, since);
+    let near = place::closest_approach(&kept, &osm, p, min_passes, NEAR_RECEIVER_M);
+    match (near.is_empty(), p.receiver_position.is_some()) {
+        (_, false) => { let _ = writeln!(out, "closest approach: no receiver_position set; skipped"); }
+        (true, true) => { let _ = writeln!(out, "closest approach: no one place yet ({} passes kept, {min_passes} needed)", kept.len()); }
+        (false, true) => {
+            let have: Vec<String> = sure.iter().map(|(s, _)| s.wiu.clone()).collect();
+            for pr in near.into_iter().filter(|n| !have.contains(&n.wiu)) {
+                let _ = writeln!(out, "  closest approach: {}  {:.5}, {:.5}", pr.wiu, pr.lat, pr.lon);
+                sure.push((pr, "closest_approach"));
+            }
+        }
     }
-    if settled.is_empty() {
-        let _ = writeln!(out, "none settled yet; nothing queued");
-        return Ok(());
-    }
+    Ok(sure)
+}
+
+fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&PathBuf>, set: &[String], send: bool,
+             out: &mut dyn Write) -> Result<(), String> {
+    let p = place_params(settings, set)?;
+    let state = settings.state_dir();
     let cfg = railspotting_common::load_cached_config(&state);
+    let sure = place_run(&state, &p, days, osm, place_min_passes(&cfg), send, out)?;
+    if !send {
+        let _ = writeln!(out, "{} positions ready; add --send to queue them for the headend", sure.len());
+        return Ok(());
+    }
+    if sure.is_empty() {
+        let _ = writeln!(out, "nothing ready; nothing queued");
+        return Ok(());
+    }
     if cfg.get("itc").and_then(|i| i.get("upload")) != Some(&Value::Bool(true)) {
         return Err("ITC upload is off for this receiver (the owner turns it on on the receiver's page); nothing queued".into());
     }
-    let outbox = railspotting_store::ItcOutbox::open(state.join("itc_outbox.db")).map_err(|e| format!("ITC outbox: {e:?}"))?;
-    for pr in pl.proposals.iter().filter(|pr| settled.contains(&pr.wiu)) {
-        outbox.add(&place::record(&crate::agent::ITC_NAMESPACE, pr, now)).map_err(|e| format!("ITC outbox: {e:?}"))?;
+    let takes_place = match cfg.get("itc").and_then(|i| i.get("records")).and_then(Value::as_array) {
+        Some(a) => a.iter().any(|k| k == "place"),
+        None => true, // v1.18: wayside, base and place
+    };
+    if !takes_place {
+        return Err("the headend doesn't take place records (/config itc.records); nothing queued".into());
     }
-    let _ = writeln!(out, "queued {} settled proposals; the running receiver uploads them (watch: journalctl -u railspotting-receiver -f)",
-                     settled.len());
+    let outbox = railspotting_store::ItcOutbox::open(state.join("itc_outbox.db")).map_err(|e| format!("ITC outbox: {e:?}"))?;
+    let now = railspotting_common::now();
+    for (pr, basis) in &sure {
+        outbox.add(&place::record(&crate::agent::ITC_NAMESPACE, pr, now, basis)).map_err(|e| format!("ITC outbox: {e:?}"))?;
+    }
+    let _ = writeln!(out, "queued {} positions; the running receiver uploads them (watch: journalctl -u railspotting-receiver -f)", sure.len());
     Ok(())
 }
 

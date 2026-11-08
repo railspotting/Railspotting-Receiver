@@ -131,6 +131,9 @@ fn itc_view(agent: &Agent, t0: f64, t1: f64) -> Value {
         // every change in the range, short, for the rail layout and the aspects over time:
         // [time, unit, codes, first]
         "history": changes.iter().map(|c| serde_json::json!([c["t"], c["wiu"], c["codes"], c["first"]])).collect::<Vec<_>>(),
+        // signal code names by railroad, kept on the headend (contract v1.21)
+        "code_tables": agent.config().get("itc").and_then(|i| i.get("code_tables")).filter(|t| t.is_object()).cloned()
+            .unwrap_or_else(|| serde_json::json!({})),
     })
 }
 

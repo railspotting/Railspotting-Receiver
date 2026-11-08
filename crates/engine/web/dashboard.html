@@ -1308,6 +1308,18 @@ const FEATURES = {
 };
 // device codes seen so far (crates/itc/findings.md); others are set by each railroad
 const ITC_CODES = {3: "Clear", 8: "Approach", 2: "Medium Clear", 6: "Approach Medium", 15: "Stop (control point)", 13: "Stop (intermediate signal)"};
+// code names by railroad from the headend (/config itc.code_tables, contract v1.21)
+let itcTables = {};
+// a unit's railroad number: the 3 digits after the leading 7 of its 12-digit decimal ID
+function railroadOf(w) {
+  const n = parseInt(w || "", 16);
+  return Number.isFinite(n) ? String(n).padStart(12, "0").slice(1, 4) : "";
+}
+function itcName(w, c) {
+  const t = itcTables[railroadOf(w)];
+  if (t && t[c]) return t[c];
+  return c === 30 ? "Dark" : c === 31 ? "Invalid" : ITC_CODES[c] || "";
+}
 let activeTab = "status";
 const tabHours = {};
 const logCache = {};
@@ -1579,12 +1591,13 @@ function renderVoice(d) {
     + card("Recent calls", `newest ${(d.recent || []).length}`, table(["Time", "Channel", ">MHz", ">Length", ">Peak", "From", "Details"], recent, "No calls in this range."));
 }
 
-function codeBadges(codes, prev) {
-  return `<span class="codes">${(codes || []).map((c, i) => `<span class="code${prev && prev[i] !== c ? " chg" : ""}" title="${esc(ITC_CODES[c] || "not named yet")}">${esc(c)}</span>`).join("")}</span>`;
+function codeBadges(codes, prev, w) {
+  return `<span class="codes">${(codes || []).map((c, i) => `<span class="code${prev && prev[i] !== c ? " chg" : ""}" title="${esc(itcName(w, c) || "not named yet")}">${esc(c)}</span>`).join("")}</span>`;
 }
 
 function renderItc(d) {
   const root = $("#t-itc");
+  itcTables = d.code_tables || {};
   const live = d.live, st = live ? live.status : null;
   const lunits = new Map(((live && live.units) || []).map((u) => [u.wiu, u]));
   const runits = new Map((d.units || []).map((u) => [u.wiu, u]));
@@ -1604,11 +1617,11 @@ function renderItc(d) {
   const urows = ids.map((w) => {
     const l = lunits.get(w) || {}, r = runits.get(w) || {};
     return {w, l, r, last: Math.max(l.last || 0, r.last || 0)};
-  }).sort((a, b) => b.last - a.last).map(({w, l, r, last}) => `<tr><td class="mono">${esc(w)}</td><td>${l.codes ? codeBadges(l.codes) : '<span class="muted">-</span>'}</td>
+  }).sort((a, b) => b.last - a.last).map(({w, l, r, last}) => `<tr><td class="mono">${esc(w)}</td><td>${l.codes ? codeBadges(l.codes, null, w) : '<span class="muted">-</span>'}</td>
     <td class="num">${r.changes || 0}</td><td class="num">${l.changes ?? "-"}</td><td class="num">${l.messages ?? "-"}</td>
     <td class="num">${l.level_db != null ? num(l.level_db) : "-"}</td><td class="num">${esc(l.ch ?? "-")}</td><td>${esc(ago(last))}</td></tr>`);
   const recent = (d.recent || []).map((c) => `<tr><td>${esc(clock(c.t))}</td><td class="mono">${esc(c.wiu)}</td>
-    <td>${c.first ? '<span class="tag">first heard</span>' : codeBadges(c.previous_codes)}</td><td>${codeBadges(c.codes, c.first ? null : c.previous_codes)}</td>
+    <td>${c.first ? '<span class="tag">first heard</span>' : codeBadges(c.previous_codes, null, c.wiu)}</td><td>${codeBadges(c.codes, c.first ? null : c.previous_codes, c.wiu)}</td>
     <td>${esc(c.first ? "" : (c.codes || []).map((x, i) => (c.previous_codes || [])[i] !== x ? i + 1 : 0).filter(Boolean).join(", "))}</td>
     <td class="num">${num(c.level_db)}</td><td class="num">${esc(c.channel ?? c.ch)}</td></tr>`);
   const legend = Object.entries(ITC_CODES).map(([k, v]) => `<span class="code">${k}</span> ${esc(v)}`).join(" &nbsp; ");
@@ -1647,8 +1660,9 @@ const RECENT_S = 300;     // a field changed this recently is highlighted
 function aspectColor(c) {
   return c === 3 ? "var(--good)" : PROCEED.has(c) ? "var(--warning)" : STOP.has(c) ? "var(--critical)" : "var(--muted)";
 }
-function codeName(c) {
-  return ITC_CODES[c] ? `${c} ${ITC_CODES[c]}` : `${c}`;
+function codeName(c, w) {
+  const n = itcName(w, c);
+  return n ? `${c} ${n}` : `${c}`;
 }
 
 // each unit's fields over time, [[t, code], ...] at every change, from the changes in range
@@ -1802,7 +1816,7 @@ function drawRail(box, locs, hist, live, rangeUnits) {
         const recent = st.changedAt[f] && nowT - st.changedAt[f] < RECENT_S;
         const head = svgEl(svg, "circle", {cx: x + 9, cy: headY(j), r: 6, fill: aspectColor(c),
           stroke: recent ? "var(--accent)" : "var(--surface)", "stroke-width": recent ? 3 : 1.5});
-        svgEl(head, "title", {}, `${w} field ${f + 1}: ${codeName(c)}${st.changedAt[f] ? `, changed ${ago(st.changedAt[f])}` : ", not seen to change"}`);
+        svgEl(head, "title", {}, `${w} field ${f + 1}: ${codeName(c, w)}${st.changedAt[f] ? `, changed ${ago(st.changedAt[f])}` : ", not seen to change"}`);
         svgEl(svg, "line", {x1: x, x2: x + 3, y1: headY(j), y2: headY(j), stroke: "var(--text-2)", "stroke-width": 2});
       });
       const ly = headY(show.length - 1) + dir * 18;
@@ -1847,7 +1861,7 @@ function drawAspects(box, order, hist, t0, t1, gaps) {
       const a = r.fh[k][0], b = k + 1 < r.fh.length ? r.fh[k + 1][0] : t1;
       if (b < t0 || a > t1) continue;
       const rect = svgEl(svg, "rect", {x: x(a), y: y + 2, width: Math.max(1, x(b) - x(a) - 0.5), height: rh - 4, rx: 2, fill: aspectColor(r.fh[k][1])});
-      svgEl(rect, "title", {}, `${r.w} field ${r.f + 1}: ${codeName(r.fh[k][1])} from ${clock(a)}`);
+      svgEl(rect, "title", {}, `${r.w} field ${r.f + 1}: ${codeName(r.fh[k][1], r.w)} from ${clock(a)}`);
     }
   });
   for (const [a, b] of gaps || []) {
@@ -1874,7 +1888,7 @@ function railCards(d) {
   const loose = unplaced.map((w) => {
     const st = unitNow(w, hist, liveUnits);
     return `<span class="panel" style="display:inline-block;padding:6px 8px;margin:0 6px 6px 0"><span class="mono">${esc(w.slice(6))}</span>
-      ${codeBadges(st.codes)} <span class="muted">${esc(st.last ? ago(st.last) : "")}</span></span>`;
+      ${codeBadges(st.codes, null, w)} <span class="muted">${esc(st.last ? ago(st.last) : "")}</span></span>`;
   }).join("");
   return {
     html: card("Rail layout", `${locs.length} locations from ${trains} train${trains === 1 ? "" : "s"} seen passing`,

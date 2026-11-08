@@ -37,7 +37,7 @@ pub struct Tracker {
     bases: HashMap<String, BaseState>,
 }
 
-fn ms(t: f64) -> i64 {
+pub(crate) fn ms(t: f64) -> i64 {
     (t * 1000.0).round() as i64
 }
 
@@ -47,7 +47,7 @@ fn channel(v: &Value) -> Option<i64> {
 
 /// The signal level of the message: its peak relative to full scale (`floor_db + level_db`),
 /// within the contract's -150 to 20 dB.
-fn level(m: &Value) -> f64 {
+pub(crate) fn level(m: &Value) -> f64 {
     let peak = m["level_db"].as_f64().unwrap_or(0.0) + m["floor_db"].as_f64().unwrap_or(0.0);
     (peak.clamp(-150.0, 20.0) * 10.0).round() / 10.0
 }

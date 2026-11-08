@@ -11,6 +11,8 @@
 //! - `survey`: the tally and report of `railspotting-receiver itc survey`;
 //! - `changes`: wayside state changes and base stations, as records for the headend (contract
 //!   v1.18);
+//! - `locos`: locomotive radios heard, as `loco` records (contract v1.21);
+//! - `passes`: trains passing the receiver, as `pass` records (contract v1.21);
 //! - `place`: where wayside units are, from train timing, a defect detector and mapped signals,
 //!   as proposals for the headend (contract v1.18 section 7).
 //!
@@ -23,7 +25,9 @@ pub mod decode;
 pub mod dsp;
 pub mod feed;
 pub mod link;
+pub mod locos;
 pub mod msg;
+pub mod passes;
 pub mod place;
 pub mod recording;
 pub mod survey;
