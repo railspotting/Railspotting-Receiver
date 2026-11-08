@@ -317,6 +317,15 @@ pub struct Agent {
 
 pub type EventHook = Arc<dyn Fn(&Value) + Send + Sync>;
 
+/// How many of `records` the headend took (`accepted` IDs), by record type.
+fn accepted_kinds(records: &[Value], accepted: &[String]) -> std::collections::BTreeMap<String, usize> {
+    let mut by = std::collections::BTreeMap::new();
+    for r in records.iter().filter(|r| r["id"].as_str().is_some_and(|id| accepted.iter().any(|a| a == id))) {
+        *by.entry(r["type"].as_str().unwrap_or("other").to_string()).or_insert(0) += 1;
+    }
+    by
+}
+
 /// `/config` `itc.upload` (contract v1.18). Without `itc`, the headend does not know v1.18.
 fn itc_upload_on(cfg: &Value) -> bool {
     cfg.get("itc").and_then(|i| i.get("upload")) == Some(&Value::Bool(true))
@@ -1233,6 +1242,11 @@ impl Agent {
             resp.get(k).and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(String::from).collect()
         };
         let mut done = list("accepted");
+        // a line when the headend takes locomotives, passes or places: counts only, no IDs
+        let took = accepted_kinds(&records, &done);
+        if ["loco", "pass", "place"].iter().any(|k| took.contains_key(*k)) {
+            log::info!("ITC upload: the headend took {}", took.iter().map(|(k, n)| format!("{n} {k}")).collect::<Vec<_>>().join(", "));
+        }
         done.extend(list("duplicates"));
         for r in resp.get("rejected").and_then(Value::as_array).into_iter().flatten() {
             let id = r.get("id").and_then(Value::as_str).unwrap_or("");
@@ -2421,5 +2435,18 @@ impl CommandHost for Agent {
     }
     fn timing(&self) -> Timing {
         self.monitor.timing()
+    }
+}
+
+#[cfg(test)]
+mod itc_upload_tests {
+    use super::*;
+
+    #[test]
+    fn accepted_records_are_counted_by_type() {
+        let recs = vec![json!({"id": "a", "type": "wayside"}), json!({"id": "b", "type": "loco"}), json!({"id": "c", "type": "loco"}),
+                        json!({"id": "d", "type": "pass"})];
+        let took = accepted_kinds(&recs, &["a".into(), "b".into(), "d".into(), "zz".into()]);
+        assert_eq!(took.into_iter().collect::<Vec<_>>(), vec![("loco".into(), 1), ("pass".into(), 1), ("wayside".into(), 1)]);
     }
 }
