@@ -187,9 +187,13 @@ dispatcher-style view is not to be made public either.
 - `railspotting_itc::locos` tracks locomotive radios (check-in and acknowledgement senders and
   unicast destinations that are neither a base nor in a base's wayside list); a sighting is sent
   after `loco_gap_s` of quiet, or hourly while heard. Its peak is from its own transmissions.
-- `railspotting_itc::passes` builds a pass from a wayside drop, the locomotives peaking within
-  8 dB of the loudest, the EOT unit and the detector event the receiver sent; it ends after 600 s
-  quiet. Passes are also kept on the receiver (`state/itc/passes/`).
+- `railspotting_itc::passes` builds a pass around a train's locomotive radios (those starting
+  within 3 minutes of each other), ended when they have been quiet 600 s; `closest` is the
+  loudest one's peak. It gathers the drops, EOT unit and detector event within 10 minutes of the
+  radios, lists the radios peaking within 8 dB of the loudest, and is kept only when a wayside
+  dropped within 5 minutes of `closest`. (Built around drops instead, a busy line never ends a
+  pass: waysides there drop every 2 minutes, with only 5% of gaps over 600 s.) Passes are also
+  kept on the receiver (`state/itc/passes/`).
 - `loco` and `pass` records are queued only while upload is on and `itc.records` lists them.
   `fields` is not sent yet (the per-unit layout is not worked out yet).
 - Placement runs 15 minutes after a start and every 6 hours: positions from mapped signals once

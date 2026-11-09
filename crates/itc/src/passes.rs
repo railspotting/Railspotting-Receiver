@@ -1,46 +1,55 @@
 //! Trains passing the receiver, as `pass` records for the headend (contract v1.21, section 3). No
 //! I/O.
 //!
-//! A pass starts when a wayside drops from proceed to stop. It gathers the drops that follow, the
-//! locomotive radios transmitting around it, the end-of-train unit heard and the detector event
-//! sent for the train, and ends after `QUIET_S` with no drop and no message from its own
-//! locomotives. Its locomotives are the radios that peak within `LOCO_DB` of the loudest, so a
-//! train elsewhere on the same base, heard faintly, is left out. `closest` is when the loudest
-//! was loudest: the train nearest the receiver.
+//! A pass is built around the train's locomotives, not around signal drops: on a busy line
+//! waysides drop every couple of minutes (trains, and dispatchers setting and cancelling routes),
+//! so drops alone never leave a quiet gap to end a pass. Locomotive radios that start
+//! transmitting within `GROUP_S` of each other are one train. Its pass ends when they have all been
+//! quiet for `QUIET_S`. `closest` is when the loudest of them was loudest: the train nearest the
+//! receiver. The pass gathers the drops, end-of-train units and detector events from the train's
+//! time window, and is kept only when a wayside dropped within `NEAR_S` of `closest`. On a busy
+//! line that rarely leaves a distant train out (something drops every few minutes); the headend
+//! links a pass to its train by its EOT unit, detector event and time.
 
 use crate::changes::ms;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use uuid::Uuid;
 
-/// A pass ends after this long with no drop and no message from its locomotives.
+/// A train's pass ends after its radios have been quiet this long.
 pub const QUIET_S: f64 = 600.0;
-/// Locomotive messages and EOT bursts this long before the first drop count for the pass.
-pub const BEFORE_S: f64 = 600.0;
-/// Radios peaking within this many dB of the loudest are the train's.
+/// Radios that start transmitting this close together are one train.
+pub const GROUP_S: f64 = 180.0;
+/// Drops, EOT units and detector events this long either side of the train's radios count.
+pub const WINDOW_S: f64 = 600.0;
+/// A pass is kept only with a drop this close to `closest`.
+pub const NEAR_S: f64 = 300.0;
+/// Radios peaking within this many dB of the loudest are listed.
 pub const LOCO_DB: f64 = 8.0;
 pub const MAX_LOCOS: usize = 8;
 pub const MAX_DROPS: usize = 64;
 /// End-of-train unit IDs are 17 bits.
 pub const EOT_MAX: i64 = 131_071;
+/// Drops, EOT units and detector events are kept this long, for passes still open.
+const KEEP_S: f64 = 3.0 * 3600.0;
 
+/// A radio in a train: (peak time, peak level, first message, last message).
+type Radio = (f64, f64, f64, f64);
+
+/// One train's locomotive radios.
 #[derive(Default)]
-struct Pass {
+struct Train {
+    radios: BTreeMap<String, Radio>,
     first: f64,
-    active: f64,
-    drops: Vec<(String, f64)>,
-    /// radio: (peak time, peak level, last message)
-    locos: BTreeMap<String, (f64, f64, f64)>,
-    eot: BTreeMap<i64, u32>,
-    detector: Option<String>,
+    last: f64,
 }
 
 pub struct Passes {
     ns: Uuid,
-    cur: Option<Pass>,
-    /// Recent locomotive messages and EOT units, for a pass that starts after them.
-    before_locos: Vec<(String, f64, f64)>,
-    before_eot: Vec<(i64, f64)>,
+    trains: Vec<Train>,
+    drops: VecDeque<(String, f64)>,
+    eots: VecDeque<(i64, f64)>,
+    detectors: VecDeque<(String, f64)>,
 }
 
 fn uuid_ok(s: &str) -> bool {
@@ -49,7 +58,7 @@ fn uuid_ok(s: &str) -> bool {
 
 impl Passes {
     pub fn new(ns: Uuid) -> Passes {
-        Passes { ns, cur: None, before_locos: vec![], before_eot: vec![] }
+        Passes { ns, trains: vec![], drops: VecDeque::new(), eots: VecDeque::new(), detectors: VecDeque::new() }
     }
 
     /// Record IDs are UUID v5 under `ns` (the receiver's ITC namespace).
@@ -57,101 +66,101 @@ impl Passes {
         self.ns = ns;
     }
 
-    /// A wayside dropped from proceed to stop.
-    pub fn drop(&mut self, wiu: &str, t: f64) {
-        let p = self.cur.get_or_insert_with(|| Pass { first: t, active: t, ..Default::default() });
-        if p.drops.len() < MAX_DROPS && !p.drops.iter().any(|(w, _)| w == wiu) {
-            p.drops.push((wiu.to_string(), t));
+    fn prune(&mut self, t: f64) {
+        while self.drops.front().is_some_and(|d| d.1 < t - KEEP_S) {
+            self.drops.pop_front();
         }
-        p.active = p.active.max(t);
-        if p.drops.len() == 1 {
-            // what came just before the first drop is the same train approaching
-            let since = t - BEFORE_S;
-            for (r, tt, lv) in std::mem::take(&mut self.before_locos).into_iter().filter(|x| x.1 >= since) {
-                Self::loco_into(p, &r, tt, lv, false);
-            }
-            for (u, tt) in std::mem::take(&mut self.before_eot).into_iter().filter(|x| x.1 >= since) {
-                *p.eot.entry(u).or_default() += 1;
-                let _ = tt;
-            }
+        while self.eots.front().is_some_and(|d| d.1 < t - KEEP_S) {
+            self.eots.pop_front();
+        }
+        while self.detectors.front().is_some_and(|d| d.1 < t - KEEP_S) {
+            self.detectors.pop_front();
         }
     }
 
-    fn loco_into(p: &mut Pass, radio: &str, t: f64, level: f64, keeps_alive: bool) {
-        let e = p.locos.entry(radio.to_string()).or_insert((t, level, t));
-        if level > e.1 {
-            (e.0, e.1) = (t, level);
-        }
-        e.2 = e.2.max(t);
-        if keeps_alive {
-            p.active = p.active.max(t);
-        }
+    /// A wayside dropped from proceed to stop.
+    pub fn drop(&mut self, wiu: &str, t: f64) {
+        self.drops.push_back((wiu.to_string(), t));
+        self.prune(t);
     }
 
     /// A locomotive radio's own transmission.
     pub fn loco(&mut self, radio: &str, t: f64, level: f64) {
-        match self.cur.as_mut() {
-            Some(p) => {
-                // a radio already in the pass keeps it going; a new one only joins it
-                let known = p.locos.contains_key(radio);
-                Self::loco_into(p, radio, t, level, known);
-            }
+        // its train: the one it is already in, else one whose radios started just now
+        let k = self.trains.iter().position(|tr| tr.radios.contains_key(radio))
+            .or_else(|| self.trains.iter().position(|tr| (t - tr.first).abs() <= GROUP_S));
+        let tr = match k {
+            Some(k) => &mut self.trains[k],
             None => {
-                self.before_locos.push((radio.to_string(), t, level));
-                self.before_locos.retain(|x| x.1 >= t - BEFORE_S);
+                self.trains.push(Train { first: t, last: t, ..Default::default() });
+                let n = self.trains.len() - 1;
+                &mut self.trains[n]
             }
+        };
+        let e = tr.radios.entry(radio.to_string()).or_insert((t, level, t, t));
+        if level > e.1 {
+            (e.0, e.1) = (t, level);
         }
+        e.3 = e.3.max(t);
+        tr.first = tr.first.min(t);
+        tr.last = tr.last.max(t);
     }
 
     /// An end-of-train unit heard.
     pub fn eot(&mut self, unit: i64, t: f64) {
-        if !(0..=EOT_MAX).contains(&unit) {
-            return;
-        }
-        match self.cur.as_mut() {
-            Some(p) => *p.eot.entry(unit).or_default() += 1,
-            None => {
-                self.before_eot.push((unit, t));
-                self.before_eot.retain(|x| x.1 >= t - BEFORE_S);
-            }
+        if (0..=EOT_MAX).contains(&unit) {
+            self.eots.push_back((unit, t));
+            self.prune(t);
         }
     }
 
     /// A detector event this receiver sent (its `event_id`), not a repeat.
-    pub fn detector(&mut self, event_id: &str, _t: f64) {
-        if let Some(p) = self.cur.as_mut() {
-            if p.detector.is_none() && uuid_ok(event_id) {
-                p.detector = Some(event_id.to_string());
+    pub fn detector(&mut self, event_id: &str, t: f64) {
+        if uuid_ok(event_id) {
+            self.detectors.push_back((event_id.to_string(), t));
+            self.prune(t);
+        }
+    }
+
+    /// The passes that have ended by `now`, as records.
+    pub fn due(&mut self, now: f64) -> Vec<Value> {
+        let (done, open): (Vec<Train>, Vec<Train>) = std::mem::take(&mut self.trains).into_iter().partition(|tr| now - tr.last > QUIET_S);
+        self.trains = open;
+        done.iter().filter_map(|tr| self.record(tr, now)).collect()
+    }
+
+    fn record(&self, tr: &Train, t: f64) -> Option<Value> {
+        let round = |x: f64| ms(x) as f64 / 1000.0;
+        let mut locos: Vec<(&String, &Radio)> = tr.radios.iter().collect();
+        locos.sort_by(|a, b| b.1 .1.total_cmp(&a.1 .1).then(a.0.cmp(b.0)));
+        let top = locos.first()?.1;
+        let closest = top.0.min(t);
+        locos.retain(|l| l.1 .1 >= top.1 - LOCO_DB);
+        locos.truncate(MAX_LOCOS);
+        let (from, to) = (tr.first - WINDOW_S, tr.last + WINDOW_S);
+        let mut drops: Vec<&(String, f64)> = vec![];
+        for d in self.drops.iter().filter(|d| d.1 >= from && d.1 <= to) {
+            if drops.len() < MAX_DROPS && !drops.iter().any(|x| x.0 == d.0) {
+                drops.push(d);
             }
         }
-    }
-
-    /// The pass that has ended by `now`, as a record.
-    pub fn due(&mut self, now: f64) -> Option<Value> {
-        if self.cur.as_ref().is_none_or(|p| now - p.active <= QUIET_S) {
+        // a train heard faintly elsewhere on the base drops nothing near its closest approach
+        if !drops.iter().any(|d| (d.1 - closest).abs() <= NEAR_S) {
             return None;
         }
-        let p = self.cur.take()?;
-        Some(self.record(&p, now))
-    }
-
-    fn record(&self, p: &Pass, t: f64) -> Value {
-        let round = |x: f64| ms(x) as f64 / 1000.0;
-        let mut locos: Vec<(&String, &(f64, f64, f64))> = p.locos.iter().collect();
-        locos.sort_by(|a, b| b.1 .1.total_cmp(&a.1 .1).then(a.0.cmp(b.0)));
-        let loudest = locos.first().map(|l| l.1 .1);
-        locos.retain(|l| loudest.is_some_and(|top| l.1 .1 >= top - LOCO_DB));
-        locos.truncate(MAX_LOCOS);
-        let closest = locos.first().map(|l| round(l.1 .0.min(t)));
-        let anchor = closest.unwrap_or(p.first);
-        let eot = p.eot.iter().max_by_key(|(u, n)| (**n, -**u)).map(|(u, _)| *u);
-        json!({
-            "id": Uuid::new_v5(&self.ns, format!("itc-pass:{}", ms(anchor)).as_bytes()).to_string(),
-            "type": "pass", "t": round(t), "closest": closest,
-            "locos": locos.iter().map(|(r, (pt, pl, _))| json!({"radio": r, "peak_t": round(*pt), "peak_level_db": pl})).collect::<Vec<_>>(),
-            "drops": p.drops.iter().map(|(w, dt)| json!({"wiu": w, "t": round(*dt)})).collect::<Vec<_>>(),
-            "eot_unit": eot, "detector_event_id": p.detector,
-        })
+        let mut count: BTreeMap<i64, u32> = BTreeMap::new();
+        for (u, _) in self.eots.iter().filter(|e| e.1 >= from && e.1 <= to) {
+            *count.entry(*u).or_default() += 1;
+        }
+        let eot = count.iter().max_by_key(|(u, n)| (**n, -**u)).map(|(u, _)| *u);
+        let detector = self.detectors.iter().find(|d| d.1 >= from && d.1 <= to).map(|d| d.0.clone());
+        Some(json!({
+            "id": Uuid::new_v5(&self.ns, format!("itc-pass:{}", ms(closest)).as_bytes()).to_string(),
+            "type": "pass", "t": round(t), "closest": round(closest),
+            "locos": locos.iter().map(|(r, (pt, pl, _, _))| json!({"radio": r, "peak_t": round(*pt), "peak_level_db": pl})).collect::<Vec<_>>(),
+            "drops": drops.iter().map(|(w, dt)| json!({"wiu": w, "t": round(*dt)})).collect::<Vec<_>>(),
+            "eot_unit": eot, "detector_event_id": detector,
+        }))
     }
 }
 
@@ -163,38 +172,47 @@ mod tests {
     const DET: &str = "0b7a3c52-3f6e-4d2a-9b1c-8e5f7a6d4c3b";
 
     #[test]
-    fn a_pass_joins_drops_locomotives_eot_and_detector() {
+    fn a_pass_is_the_trains_radios_with_its_drops_eot_and_detector() {
         let mut p = Passes::new(NS);
-        // the train's locomotives are heard as it approaches, before any signal drops
-        p.loco("a1b2c3", 1000.0, -40.0);
-        p.loco("a1b2c4", 1010.0, -42.0);
-        p.loco("ffff01", 1020.0, -70.0); // another train, far off
-        p.drop("1234560101", 1200.0);
-        p.loco("a1b2c3", 1300.0, -20.0);
-        p.loco("a1b2c4", 1310.0, -24.0);
-        p.drop("1234560103", 1305.0);
-        p.drop("1234560101", 1306.0); // the same unit again: listed once
-        p.eot(67000, 1500.0);
-        p.eot(67000, 1510.0);
-        p.detector(DET, 1520.0);
-        p.detector("not-a-uuid", 1521.0);
-        assert!(p.due(1310.0 + QUIET_S).is_none(), "not quiet long enough");
-        let r = p.due(1310.0 + QUIET_S + 1.0).expect("the pass ended");
-        assert_eq!(r["type"], "pass");
-        assert_eq!(r["closest"], 1300.0);
-        assert_eq!(r["id"], Uuid::new_v5(&NS, b"itc-pass:1300000").to_string());
+        // a busy line: drops all the time, from routes being set and cancelled too
+        for k in 0..40 {
+            p.drop(&format!("12345602{:02}", k % 7), k as f64 * 100.0);
+        }
+        // a train: two radios starting together, loudest at 2000
+        p.loco("a1b2c3", 1700.0, -40.0);
+        p.loco("a1b2c4", 1760.0, -42.0);
+        p.loco("a1b2c3", 2000.0, -20.0);
+        p.loco("a1b2c4", 2010.0, -24.0);
+        p.drop("1234560101", 2005.0);
+        p.drop("1234560103", 2100.0);
+        p.loco("a1b2c3", 2200.0, -30.0);
+        p.eot(67000, 2150.0);
+        p.eot(67000, 2160.0);
+        p.detector(DET, 2300.0);
+        p.detector("not-a-uuid", 2301.0);
+        // another train, much later, after the line has gone quiet
+        p.loco("ffff01", 6000.0, -70.0);
+        assert!(p.due(2200.0 + QUIET_S).is_empty(), "not quiet long enough");
+        let got = p.due(2200.0 + QUIET_S + 1.0);
+        assert_eq!(got.len(), 1);
+        let r = &got[0];
+        assert_eq!(r["closest"], 2000.0);
+        assert_eq!(r["id"], Uuid::new_v5(&NS, b"itc-pass:2000000").to_string());
         let locos: Vec<&str> = r["locos"].as_array().unwrap().iter().map(|l| l["radio"].as_str().unwrap()).collect();
-        assert_eq!(locos, vec!["a1b2c3", "a1b2c4"], "strongest first; the faint one left out");
+        assert_eq!(locos, vec!["a1b2c3", "a1b2c4"]);
         let drops: Vec<&str> = r["drops"].as_array().unwrap().iter().map(|d| d["wiu"].as_str().unwrap()).collect();
-        assert_eq!(drops, vec!["1234560101", "1234560103"]);
+        assert!(drops.contains(&"1234560101") && drops.contains(&"1234560103"), "{drops:?}");
+        let times: Vec<f64> = r["drops"].as_array().unwrap().iter().map(|d| d["t"].as_f64().unwrap()).collect();
+        assert!(times.windows(2).all(|w| w[0] <= w[1]), "in the order they happened");
         assert_eq!(r["eot_unit"], 67000);
         assert_eq!(r["detector_event_id"], DET);
-        assert!(r["closest"].as_f64().unwrap() <= r["t"].as_f64().unwrap());
-        assert!(p.due(1e9).is_none());
+        // it ends too, but no wayside dropped near its closest approach: no pass
+        p.drop("1234560105", 6400.0);
+        assert!(p.due(6000.0 + QUIET_S + 1.0).is_empty());
     }
 
     #[test]
-    fn limits_and_a_pass_with_no_locomotive() {
+    fn limits_and_no_pass_without_a_drop() {
         let mut p = Passes::new(NS);
         for k in 0..100 {
             p.drop(&format!("1234560{:03}", k), 100.0 + k as f64);
@@ -203,15 +221,13 @@ mod tests {
             p.loco(&format!("a1b2{:02x}", k), 150.0, -30.0 - (k % 3) as f64);
         }
         p.eot(EOT_MAX + 1, 160.0);
-        let r = p.due(1000.0).unwrap();
+        let r = &p.due(1000.0)[0];
         assert_eq!(r["drops"].as_array().unwrap().len(), MAX_DROPS);
         assert_eq!(r["locos"].as_array().unwrap().len(), MAX_LOCOS);
         assert!(r["eot_unit"].is_null());
         assert!(r["detector_event_id"].is_null());
         let mut q = Passes::new(NS);
-        q.drop("1234560101", 500.0);
-        let r = q.due(2000.0).unwrap();
-        assert!(r["closest"].is_null());
-        assert_eq!(r["id"], Uuid::new_v5(&NS, b"itc-pass:500000").to_string());
+        q.loco("a1b2c3", 500.0, -20.0);
+        assert!(q.due(2000.0).is_empty(), "no wayside dropped: not a pass here");
     }
 }

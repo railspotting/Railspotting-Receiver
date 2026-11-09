@@ -406,8 +406,8 @@ impl ItcRx {
         // sightings and passes that have ended, for the headend when it takes them
         let now = self.last_t;
         let locos = self.locos.due(now);
-        let pass = self.passes.due(now);
-        if let Some(r) = &pass {
+        let passes = self.passes.due(now);
+        for r in &passes {
             // kept here too, upload or not: placement counts what trains drop at closest approach
             self.write_pass(now, r);
         }
@@ -415,7 +415,7 @@ impl ItcRx {
             for r in locos.into_iter().filter(|_| u.takes("loco")) {
                 (u.add)(r);
             }
-            if let Some(r) = pass.filter(|_| u.takes("pass")) {
+            for r in passes.into_iter().filter(|_| u.takes("pass")) {
                 (u.add)(r);
             }
         }
