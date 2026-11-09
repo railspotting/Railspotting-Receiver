@@ -695,25 +695,17 @@ impl Agent {
     }
 
     /// An EOT unit or a detector event, for the train an ITC dongle sees passing (contract
-    /// v1.21 `pass` records).
+    /// v1.21 `pass` records). Queued on the ITC upload hook, never handed to a dongle here:
+    /// this runs on the thread of the dongle that heard the event, which may hold that dongle's
+    /// lock, so taking any dongle's lock here can deadlock it.
     fn note_for_itc(&self, ev: &Map<String, Value>, t: f64) {
-        let unit = ev.get("telemetry").and_then(|x| x.get("unit_id")).and_then(Value::as_i64);
+        if let Some(u) = ev.get("telemetry").and_then(|x| x.get("unit_id")).and_then(Value::as_i64) {
+            self.itc_upload.note(railspotting_dsp::itc_rx::Note::Eot(u, t));
+        }
         let detector = ev.get("detector").filter(|d| d.get("repeat_of").is_none_or(Value::is_null))
             .and(ev.get("event_id")).and_then(Value::as_str);
-        if unit.is_none() && detector.is_none() {
-            return;
-        }
-        for s in self.sdrs() {
-            s.with(|x| {
-                if let Some(i) = x.itc.as_mut() {
-                    if let Some(u) = unit {
-                        i.note_eot(u, t);
-                    }
-                    if let Some(id) = detector {
-                        i.note_detector(id, t);
-                    }
-                }
-            });
+        if let Some(id) = detector {
+            self.itc_upload.note(railspotting_dsp::itc_rx::Note::Detector(id.to_string(), t));
         }
     }
 

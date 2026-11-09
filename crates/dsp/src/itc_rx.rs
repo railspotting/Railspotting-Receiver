@@ -96,7 +96,21 @@ pub struct ItcUpload {
     /// The record types the headend takes (`itc.records`, contract v1.21) and how long a
     /// locomotive radio must be quiet before its sighting is sent (`itc.loco_gap_s`).
     takes: std::sync::RwLock<(Vec<String>, f64)>,
+    /// EOT units and detector events heard, for the train passing. The agent adds them as it
+    /// emits events, from whichever dongle's thread, without touching the ITC dongle (whose
+    /// lock that thread may not take: it may hold its own); the ITC dongle collects them.
+    notes: std::sync::Mutex<Vec<Note>>,
 }
+
+/// Something heard elsewhere on the receiver that belongs to a train passing.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Note {
+    Eot(i64, f64),
+    Detector(String, f64),
+}
+
+/// Notes kept at most, oldest dropped (they are collected every block).
+const NOTES_MAX: usize = 1000;
 
 /// The record types a headend takes when `/config` doesn't say (contract v1.18).
 pub const V118_RECORDS: [&str; 3] = ["wayside", "base", "place"];
@@ -106,7 +120,20 @@ impl ItcUpload {
     /// Record IDs are UUID v5 under `ns`; `add` takes each record.
     pub fn new(ns: uuid::Uuid, add: Box<dyn Fn(Value) + Send + Sync>) -> Arc<ItcUpload> {
         let takes = (V118_RECORDS.iter().map(|s| s.to_string()).collect(), DEFAULT_LOCO_GAP_S);
-        Arc::new(ItcUpload { on: AtomicBool::new(false), ns, add, takes: std::sync::RwLock::new(takes) })
+        Arc::new(ItcUpload { on: AtomicBool::new(false), ns, add, takes: std::sync::RwLock::new(takes), notes: std::sync::Mutex::new(vec![]) })
+    }
+
+    /// An EOT unit or detector event heard, for the ITC dongle's next block.
+    pub fn note(&self, n: Note) {
+        let mut v = self.notes.lock().unwrap_or_else(|p| p.into_inner());
+        if v.len() >= NOTES_MAX {
+            v.remove(0);
+        }
+        v.push(n);
+    }
+
+    fn take_notes(&self) -> Vec<Note> {
+        std::mem::take(&mut *self.notes.lock().unwrap_or_else(|p| p.into_inner()))
     }
 
     /// From `/config` `itc`: `records` (absent: the v1.18 types) and `loco_gap_s`.
@@ -315,6 +342,14 @@ impl ItcRx {
             None => self.tracker = None,
             _ => {}
         }
+        if let Some(u) = &self.upload {
+            for n in u.take_notes() {
+                match n {
+                    Note::Eot(unit, t) => self.passes.eot(unit, t),
+                    Note::Detector(id, t) => self.passes.detector(&id, t),
+                }
+            }
+        }
         if let Some(u) = &upload {
             self.locos.set_ns(u.ns);
             self.passes.set_ns(u.ns);
@@ -440,15 +475,7 @@ impl ItcRx {
         }
     }
 
-    /// An end-of-train unit heard by this receiver, for the train passing (contract v1.21).
-    pub fn note_eot(&mut self, unit: i64, t: f64) {
-        self.passes.eot(unit, t);
-    }
 
-    /// A detector event this receiver sent (its `event_id`), for the train passing.
-    pub fn note_detector(&mut self, event_id: &str, t: f64) {
-        self.passes.detector(event_id, t);
-    }
 
     fn write_log(&mut self, t: f64, line: &str) {
         let day = utc_date(t);
@@ -925,7 +952,12 @@ mod tests {
             }
             r.upload = Some(up.clone());
             let t0 = 1_792_713_600.0;
-            for batch in train(t0) {
+            for (k, batch) in train(t0).into_iter().enumerate() {
+                if k == 3 {
+                    // as the agent does, from another thread: no lock on this dongle needed
+                    up.note(Note::Eot(67000, t0 + 100.0));
+                    up.note(Note::Detector("0b7a3c52-3f6e-4d2a-9b1c-8e5f7a6d4c3b".into(), t0 + 110.0));
+                }
                 r.handle(&batch, t0, 220.3, 1.024e6);
             }
             assert_eq!(r.summary(t0 + 121.0)["locos_heard"], 1);
@@ -946,6 +978,8 @@ mod tests {
             assert!(first <= peak && peak <= last && last <= t, "{loco}");
             assert_eq!(loco["peak_level_db"], -30.0);
             let pass = recs.iter().find(|x| x["type"] == "pass").unwrap_or_else(|| panic!("no pass: {recs:?}"));
+            assert_eq!(pass["eot_unit"], 67000, "the EOT unit noted through the upload hook");
+            assert_eq!(pass["detector_event_id"], "0b7a3c52-3f6e-4d2a-9b1c-8e5f7a6d4c3b");
             assert_eq!(pass["closest"], t0 + 75.0);
             assert_eq!(pass["drops"][0]["wiu"], "1234560ff0");
             assert_eq!(pass["locos"][0]["radio"], "a1b2c3");
