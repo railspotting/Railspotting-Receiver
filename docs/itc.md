@@ -220,6 +220,7 @@ The defaults suit a typical North American main line. Where yours differs, set i
 | `radius_km` | `30` | how far around the base stations to fetch map data |
 | `confirm_runs` | `3` | runs in a row that must give the same position before `--send` sends it |
 | `receiver_position` | none | `[lat, lon]` of the receiver, set by its owner: the place trains drop as they pass closest is placed at the mapped signal nearest it (`closest_approach`) |
+| `closest_window_s` | `120` | a unit counts as dropped at closest approach within this many seconds of it |
 | `share_receiver_position` | `false` | with no mapped signal within 1 km, send the receiver's own position instead |
 
 ## Locomotives and trains passing

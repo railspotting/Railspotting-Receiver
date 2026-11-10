@@ -92,6 +92,9 @@ pub struct Params {
     pub receiver_position: Option<(f64, f64)>,
     /// With no mapped signal near, the receiver's own position may be sent instead.
     pub share_receiver_position: bool,
+    /// A unit counts as dropped at closest approach within this many seconds of it. Locomotives
+    /// check in about every 45 s, so the loudest moment is known to about a minute.
+    pub closest_window_s: f64,
 }
 
 impl Default for Params {
@@ -125,6 +128,7 @@ impl Default for Params {
             confirm_runs: 3,
             receiver_position: None,
             share_receiver_position: false,
+            closest_window_s: 120.0,
         }
     }
 }
@@ -135,6 +139,7 @@ pub const PARAM_KEYS: &[&str] = &[
     "pass_window_s", "detector_milepost", "railroad", "milepost_unit", "speed_mph", "speed_kmh", "cluster_m",
     "tolerance_m", "tolerance_share", "ambiguous_m", "fit_margin", "min_matches", "min_matches_without_mileposts", "milepost_slack",
     "track", "snap_m", "axis_max_spread", "radius_km", "confirm_runs", "receiver_position", "share_receiver_position",
+    "closest_window_s",
 ];
 
 impl Params {
@@ -209,6 +214,7 @@ impl Params {
                 _ => return Err(bad("[latitude, longitude] or null")),
             },
             "share_receiver_position" => self.share_receiver_position = flag()?,
+            "closest_window_s" => self.closest_window_s = num(10.0, 900.0)?,
             _ => return Err(format!("itc_place has no setting {key:?}; there are: {}", PARAM_KEYS.join(", "))),
         }
         Ok(())
@@ -257,6 +263,7 @@ impl Params {
             m.insert("receiver_position".into(), json!("set"));
         }
         diff!(share_receiver_position);
+        diff!(closest_window_s);
         Value::Object(m)
     }
 
@@ -1074,7 +1081,7 @@ pub fn closest_places(passes: &[Value], window_s: f64) -> Vec<(String, Vec<Strin
 /// receiver (within `near_m`), or at the receiver itself when its owner allows that.
 pub fn closest_approach(passes: &[Value], osm: &Osm, p: &Params, min_passes: usize, near_m: f64) -> Vec<Proposal> {
     let Some((rlat, rlon)) = p.receiver_position else { return vec![] };
-    let places = closest_places(passes, 60.0);
+    let places = closest_places(passes, p.closest_window_s);
     let Some((_, units, n)) = places.first() else { return vec![] };
     if *n < min_passes.max(1) || places.get(1).is_some_and(|q| q.2 == *n) {
         return vec![];
@@ -1437,11 +1444,12 @@ mod tests {
         let pass = |c: f64, drops: &[(&str, f64)]| json!({"closest": c, "drops": drops.iter().map(|(w, t)| json!({"wiu": w, "t": t})).collect::<Vec<_>>()});
         let passes = vec![
             pass(1000.0, &[(&a, 1010.0), (&other, 700.0)]),
-            pass(5000.0, &[(&b, 4970.0)]),
+            // 100 s after closest approach: inside the default window of 120 s
+            pass(5000.0, &[(&b, 5100.0)]),
             pass(9000.0, &[(&a, 9040.0), (&other, 9055.0)]),
             json!({"closest": null, "drops": [{"wiu": a, "t": 1.0}]}),
         ];
-        let top = closest_places(&passes, 60.0);
+        let top = closest_places(&passes, 120.0);
         assert_eq!(top[0].2, 3);
         assert_eq!(top[0].1, vec![a.clone(), b.clone()]);
         let osm = Osm { signals: vec![Signal { id: 7, lat: 40.001, lon: -90.0, name: Some("CP A".into()) }], ..Default::default() };
@@ -1452,6 +1460,9 @@ mod tests {
         assert_eq!(got.len(), 2);
         assert_eq!((got[0].lat, got[0].lon, got[0].signals.clone()), (40.001, -90.0, vec![7]));
         assert!(closest_approach(&passes, &osm, &p, 4, 1000.0).is_empty(), "too few passes");
+        let mut narrow = p.clone();
+        narrow.set("closest_window_s", &json!(60)).unwrap();
+        assert!(closest_approach(&passes, &osm, &narrow, 3, 1000.0).is_empty(), "the 100 s drop is outside 60 s");
         // no mapped signal near: only when the owner shares the receiver's position
         let far = Osm { signals: vec![Signal { id: 8, lat: 41.0, lon: -90.0, name: None }], ..Default::default() };
         assert!(closest_approach(&passes, &far, &p, 3, 1000.0).is_empty());

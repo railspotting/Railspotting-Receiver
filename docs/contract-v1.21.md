@@ -113,7 +113,9 @@ Optional. Present when the receiver knows the unit's layout:
 
 ## 5. Place records: basis `closest_approach`
 
-`basis` may also be `closest_approach`: the unit dropped within 60 s of the moment a train's
+`basis` may also be `closest_approach` (the receiver uses 120 s, not 60 s, below: locomotives
+check in about every 45 s, so the loudest moment is only known to about a minute; the headend
+does not check the timing): the unit dropped within 60 s of the moment a train's
 locomotive radios were loudest at this receiver, on at least `itc.place_min_passes` passes
 (section 7; 3). The position sent is the receiver's own position if the owner allows it, else a
 mapped signal's position, as for `osm_signal`. Admins confirm it like any suggestion.
