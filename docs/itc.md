@@ -201,7 +201,7 @@ The defaults suit a typical North American main line. Where yours differs, set i
 
 | Setting | Default | |
 |---|---|---|
-| `proceed_codes`, `stop_codes` | `[2,3,5,6,8]`, `[13,15]` | the codes that let a train on and that stop it; the railroad's device status table decides them |
+| `proceed_codes`, `stop_codes` | any code but a stop, 0, 30 and 31; `[13,15]` | the codes that let a train on and that stop it; the railroad's device status table decides them. With no `proceed_codes`, a railroad's own route codes count without a list |
 | `control_point_codes` | `[15]` | codes that make a place a control point |
 | `pair_twins` | `true` | units numbered one apart share a place |
 | `detector_milepost`, `railroad` | none | the detector to measure from, and the railroad whose detectors count; by default the one heard most |

@@ -648,14 +648,19 @@ impl ItcRx {
 }
 
 /// Delete daily files (`YYYY-MM-DD.jsonl`) in `dir` so that `keep` days remain with today.
-/// Codes that let a train on and codes for stop (by observation; `docs/itc.md`).
-const PROCEED: [i64; 5] = [2, 3, 5, 6, 8];
+/// Codes for stop (by observation; `docs/itc.md`), and codes that are neither a stop nor a
+/// proceed: 0 (an unused field), 30 (dark) and 31 (invalid).
 const STOP: [i64; 2] = [13, 15];
+const NOT_PROCEED: [i64; 3] = [0, 30, 31];
 
 /// A wayside change where some field went from proceed to stop: a train reached that signal.
+/// Proceed is any other signal code, so a railroad's own route codes count without a list;
+/// switch fields never take a stop code, so they never count.
 fn is_drop(r: &Value) -> bool {
     let (Some(now), Some(was)) = (r["codes"].as_array(), r["previous_codes"].as_array()) else { return false };
-    now.iter().zip(was).any(|(n, w)| w.as_i64().is_some_and(|w| PROCEED.contains(&w)) && n.as_i64().is_some_and(|n| STOP.contains(&n)))
+    now.iter().zip(was).any(|(n, w)| {
+        w.as_i64().is_some_and(|w| !STOP.contains(&w) && !NOT_PROCEED.contains(&w)) && n.as_i64().is_some_and(|n| STOP.contains(&n))
+    })
 }
 
 /// A daily file's date ("2026-10-23" from "2026-10-23.jsonl" or "2026-10-23.jsonl.gz").
@@ -989,6 +994,16 @@ mod tests {
             assert_eq!(kept[0]["closest"], pass["closest"]);
         }
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_route_code_dropping_to_stop_is_a_drop_and_a_switch_is_not() {
+        let rec = |was: &[i64], now: &[i64]| json!({"previous_codes": was, "codes": now});
+        assert!(is_drop(&rec(&[15, 9, 15, 5], &[15, 15, 15, 5])), "a route code (9) to stop");
+        assert!(is_drop(&rec(&[3, 13, 0], &[13, 13, 0])));
+        assert!(!is_drop(&rec(&[15, 15, 15, 5], &[15, 15, 15, 4])), "a switch moving");
+        assert!(!is_drop(&rec(&[30, 8], &[15, 8])), "dark to stop is not a train");
+        assert!(!is_drop(&rec(&[13, 8], &[8, 8])), "clearing is not a drop");
     }
 
     #[test]

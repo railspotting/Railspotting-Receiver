@@ -1653,6 +1653,11 @@ function renderItc(d) {
 
 const PROCEED = new Set([2, 3, 5, 6, 8]);
 const STOP = new Set([13, 15]);
+// any signal code but a stop, 0 (unused), 30 (dark) and 31 (invalid) lets a train on, so a
+// railroad's own route codes count; switch fields never take a stop code
+function proceeds(c) {
+  return !STOP.has(c) && c !== 0 && c !== 30 && c !== 31;
+}
 const MOVE_GAP_S = 720;   // drops further apart than this belong to different trains
 const REVISIT_S = 600;    // a train back at a signal it dropped this long ago is another train
 const RECENT_S = 300;     // a field changed this recently is highlighted
@@ -1724,7 +1729,7 @@ function lineOrder(units, locOf, gaps) {
     u.fields.forEach((h, f) => {
       for (let k = 1; k < h.length; k++) {
         // a proceed lasting only seconds is a flicker, not a signal a train passed
-        if (PROCEED.has(h[k - 1][1]) && STOP.has(h[k][1]) && h[k][0] - h[k - 1][0] >= 10 && !afterGap(h[k][0])) {
+        if (proceeds(h[k - 1][1]) && STOP.has(h[k][1]) && h[k][0] - h[k - 1][0] >= 10 && !afterGap(h[k][0])) {
           drops.push({t: h[k][0], u: u.wiu, f, loc: locOf.get(u.wiu) || u.wiu});
         }
       }

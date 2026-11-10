@@ -103,7 +103,7 @@ pub struct Params {
 impl Default for Params {
     fn default() -> Params {
         Params {
-            proceed_codes: vec![2, 3, 5, 6, 8],
+            proceed_codes: vec![],
             stop_codes: vec![13, 15],
             control_point_codes: vec![15],
             pair_twins: true,
@@ -271,6 +271,16 @@ impl Params {
         diff!(closest_window_s);
         diff!(near_signal_m);
         Value::Object(m)
+    }
+
+    /// Whether `code` lets a train on: one of `proceed_codes`, or with none given, any code but a
+    /// stop, 0 (unused), 30 (dark) and 31 (invalid), so a railroad's route codes need no list.
+    pub fn proceeds(&self, code: i64) -> bool {
+        if self.proceed_codes.is_empty() {
+            !self.stop_codes.contains(&code) && ![0, 30, 31].contains(&code)
+        } else {
+            self.proceed_codes.contains(&code)
+        }
     }
 
     fn unit_m(&self) -> f64 {
@@ -455,7 +465,7 @@ fn drops(changes: &[Change], loc: &BTreeMap<String, String>, gaps: &[(f64, f64)]
             for k in 1..h.len() {
                 let (t0, c0) = h[k - 1];
                 let (t1, c1) = h[k];
-                if p.proceed_codes.contains(&c0) && p.stop_codes.contains(&c1) && t1 - t0 >= p.flicker_s && !after_gap(t1) {
+                if p.proceeds(c0) && p.stop_codes.contains(&c1) && t1 - t0 >= p.flicker_s && !after_gap(t1) {
                     out.push((t1, place.clone()));
                 }
             }
@@ -1413,6 +1423,15 @@ mod tests {
         anchor(&mut lay, &drops, &passes, &p());
         let few = Osm { signals: o.signals[..4].to_vec(), ..o.clone() };
         assert!(place(&lay, &few, &p()).proposals.is_empty());
+    }
+
+    #[test]
+    fn proceed_is_any_code_but_stop_unless_listed() {
+        let mut p = Params::default();
+        assert!(p.proceeds(9) && p.proceeds(3) && p.proceeds(21));
+        assert!(!p.proceeds(15) && !p.proceeds(13) && !p.proceeds(0) && !p.proceeds(30) && !p.proceeds(31));
+        p.set("proceed_codes", &json!([3])).unwrap();
+        assert!(p.proceeds(3) && !p.proceeds(9));
     }
 
     #[test]
