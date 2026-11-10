@@ -1295,7 +1295,7 @@ impl Agent {
 
     fn itc_place_once(&self) {
         let p = match railspotting_itc::place::Params::from_json(self.settings.get("itc_place")) {
-            Ok(p) => p,
+            Ok(p) => crate::itc::with_receiver_position(p, &self.config()),
             Err(e) => {
                 log::warn!("ITC placement: {e}; not run");
                 return;

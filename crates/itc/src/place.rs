@@ -95,6 +95,9 @@ pub struct Params {
     /// A unit counts as dropped at closest approach within this many seconds of it. Locomotives
     /// check in about every 45 s, so the loudest moment is known to about a minute.
     pub closest_window_s: f64,
+    /// The mapped signal nearest the receiver is used for `closest_approach` only within this
+    /// many metres of it.
+    pub near_signal_m: f64,
 }
 
 impl Default for Params {
@@ -129,6 +132,7 @@ impl Default for Params {
             receiver_position: None,
             share_receiver_position: false,
             closest_window_s: 120.0,
+            near_signal_m: 1000.0,
         }
     }
 }
@@ -139,7 +143,7 @@ pub const PARAM_KEYS: &[&str] = &[
     "pass_window_s", "detector_milepost", "railroad", "milepost_unit", "speed_mph", "speed_kmh", "cluster_m",
     "tolerance_m", "tolerance_share", "ambiguous_m", "fit_margin", "min_matches", "min_matches_without_mileposts", "milepost_slack",
     "track", "snap_m", "axis_max_spread", "radius_km", "confirm_runs", "receiver_position", "share_receiver_position",
-    "closest_window_s",
+    "closest_window_s", "near_signal_m",
 ];
 
 impl Params {
@@ -215,6 +219,7 @@ impl Params {
             },
             "share_receiver_position" => self.share_receiver_position = flag()?,
             "closest_window_s" => self.closest_window_s = num(10.0, 900.0)?,
+            "near_signal_m" => self.near_signal_m = num(50.0, 10000.0)?,
             _ => return Err(format!("itc_place has no setting {key:?}; there are: {}", PARAM_KEYS.join(", "))),
         }
         Ok(())
@@ -264,6 +269,7 @@ impl Params {
         }
         diff!(share_receiver_position);
         diff!(closest_window_s);
+        diff!(near_signal_m);
         Value::Object(m)
     }
 

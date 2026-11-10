@@ -525,10 +525,21 @@ fn place_params(settings: &railspotting_common::Settings, set: &[String]) -> Res
     Ok(p)
 }
 
-/// A unit's mapped position gets near a receiver's when it is within this of it.
-pub const NEAR_RECEIVER_M: f64 = 1000.0;
 /// `/config` `itc.place_min_passes` when the headend doesn't say (contract v1.21).
 pub const DEFAULT_PLACE_MIN_PASSES: usize = 3;
+
+/// The receiver's position: `itc_place.receiver_position` when its owner set one, else where the
+/// headend has it placed (`/config` `location`).
+pub fn with_receiver_position(mut p: place::Params, cfg: &Value) -> place::Params {
+    if p.receiver_position.is_none() {
+        let loc = cfg.get("location");
+        let deg = |k: &str, lim: f64| loc.and_then(|l| l.get(k)).and_then(Value::as_f64).filter(|v| v.is_finite() && v.abs() <= lim);
+        if let (Some(lat), Some(lon)) = (deg("lat", 90.0), deg("lon", 180.0)) {
+            p.receiver_position = Some((lat, lon));
+        }
+    }
+    p
+}
 
 /// `/config` `itc.place_min_passes`.
 pub fn place_min_passes(cfg: &Value) -> usize {
@@ -657,10 +668,13 @@ pub fn place_run(state: &std::path::Path, p: &place::Params, days: f64, osm: Opt
     }
     // the place trains drop as they pass closest to this receiver (contract v1.21)
     let kept = railspotting_dsp::itc_rx::read_passes(state, since);
-    let near = place::closest_approach(&kept, &osm, p, min_passes, NEAR_RECEIVER_M);
+    let near = place::closest_approach(&kept, &osm, p, min_passes, p.near_signal_m);
     match (near.is_empty(), p.receiver_position.is_some()) {
         (_, false) => { let _ = writeln!(out, "closest approach: no receiver_position set; skipped"); }
-        (true, true) => { let _ = writeln!(out, "closest approach: no one place yet ({} passes kept, {min_passes} needed)", kept.len()); }
+        (true, true) => {
+            let _ = writeln!(out, "closest approach: nothing yet ({} passes kept, {min_passes} needed for one place; a mapped signal within {:.0} m of the receiver needed{})",
+                             kept.len(), p.near_signal_m, if p.share_receiver_position { ", or the receiver's own position" } else { "" });
+        }
         (false, true) => {
             let have: Vec<String> = sure.iter().map(|(s, _)| s.wiu.clone()).collect();
             for pr in near.into_iter().filter(|n| !have.contains(&n.wiu)) {
@@ -674,9 +688,9 @@ pub fn place_run(state: &std::path::Path, p: &place::Params, days: f64, osm: Opt
 
 fn cmd_place(settings: &railspotting_common::Settings, days: f64, osm: Option<&PathBuf>, set: &[String], send: bool,
              out: &mut dyn Write) -> Result<(), String> {
-    let p = place_params(settings, set)?;
     let state = settings.state_dir();
     let cfg = railspotting_common::load_cached_config(&state);
+    let p = with_receiver_position(place_params(settings, set)?, &cfg);
     let sure = place_run(&state, &p, days, osm, place_min_passes(&cfg), send, out)?;
     if !send {
         let _ = writeln!(out, "{} positions ready; add --send to queue them for the headend", sure.len());
@@ -751,5 +765,22 @@ mod tests {
         assert!(hz("fast").is_err());
         assert_eq!(gain_value("auto"), json!("auto"));
         assert_eq!(gain_value("40.2"), json!(40.2));
+    }
+}
+
+#[cfg(test)]
+mod place_tests {
+    use super::*;
+
+    #[test]
+    fn the_receiver_position_comes_from_the_owner_else_the_headend() {
+        let cfg = json!({"location": {"lat": 40.5, "lon": -90.25}});
+        let p = with_receiver_position(place::Params::default(), &cfg);
+        assert_eq!(p.receiver_position, Some((40.5, -90.25)));
+        let mut own = place::Params::default();
+        own.set("receiver_position", &json!([41.0, -91.0])).unwrap();
+        assert_eq!(with_receiver_position(own, &cfg).receiver_position, Some((41.0, -91.0)));
+        assert_eq!(with_receiver_position(place::Params::default(), &json!({})).receiver_position, None);
+        assert_eq!(with_receiver_position(place::Params::default(), &json!({"location": {"lat": 99.0, "lon": 0.0}})).receiver_position, None);
     }
 }

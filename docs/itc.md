@@ -219,7 +219,8 @@ The defaults suit a typical North American main line. Where yours differs, set i
 | `flicker_s`, `train_gap_s`, `revisit_s`, `pass_window_s` | `10`, `720`, `600`, `1200` | timing: a proceed too short to count, drops that are another train, a train back at a place, drops that count for an announcement |
 | `radius_km` | `30` | how far around the base stations to fetch map data |
 | `confirm_runs` | `3` | runs in a row that must give the same position before `--send` sends it |
-| `receiver_position` | none | `[lat, lon]` of the receiver, set by its owner: the place trains drop as they pass closest is placed at the mapped signal nearest it (`closest_approach`) |
+| `receiver_position` | where the headend has the receiver placed (`/config` `location`) | `[lat, lon]` of the receiver: the place trains drop as they pass closest is placed at the mapped signal nearest it (`closest_approach`) |
+| `near_signal_m` | `1000` | that mapped signal must be within this many metres of the receiver |
 | `closest_window_s` | `120` | a unit counts as dropped at closest approach within this many seconds of it |
 | `share_receiver_position` | `false` | with no mapped signal within 1 km, send the receiver's own position instead |
 
